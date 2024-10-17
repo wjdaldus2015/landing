@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+ 
+    <link rel="stylesheet" href="./assets/css/layout.css">
+    <link rel="stylesheet" href="./assets/css/main.css">
+    
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+    <script src="https://unpkg.com/lenis@1.1.5/dist/lenis.min.js"></script> 
+    <script src="https://unpkg.com/flickity@2/dist/flickity.pkgd.min.js"></script>
+    
+    <script src="./assets/js/main.js" defer></script>
+
+    
+</head>
+<body>
+ 
+
+    <div class="curser-wrap" style="translate: none; rotate: none; scale: none; opacity: 1; transform: translate(-50%, -50%);">
+        <div class="curser-inner">
+            <div class="cursor"></div>
+        </div>      
+    </div>
+
+    <div class="wrapper">
+      
+        <header id="header">
+             
+            <h1 class="logo">
+                <a href="">
+                   MY LOG
+                </a>
+            </h1>
+            <div class="contact-wrap">
+              <button class="btn-contact">CONTACT</button>
+            </div>
+              
+        </header>
+
+        <main id="container">
+            <div class="inner">
+              
+                <section class="sc-intro">
+                   
+                    <span class="title">Coding with Passion<br>Creativity, and Care</span>
+                  
+                    <span class="blind">열정, 창의성, 세심함을 담아 코딩합니다</span>
+                    <div class="bg">
+                        <div class="bg-inner">
+                            <video loop="" autoplay="" muted="" playsinline="" data-wf-ignore="true" data-object-fit="cover"><source data-wf-ignore="true"><source src="https://assets.website-files.com/63f5d378a903c2a12583ce2f/64132dde932dbe26445541a5_BG-transcode.webm" data-wf-ignore="true"></video>
+                        </div>
+                    </div>
+                   
+                </section>
+                <section class="sc-projects" >
+                    <h2 class="blind">프로젝트 영역</h2>
+                    <div class="flex">
+                       
+                        <div class="desc-area">
+                            <span class="title">I can be<br class="m"> anything you want
+                            </span>
+                            <p class="desc">
+                                
+                                상상력과 열정으로 새로운 길을 그려내는 퍼블리셔입니다. 복잡한 문제도 창의적으로 해결하며, 항상 더 나은 가능성을 찾아 나가요. 기본기에 충실한 탄탄한 마크업과 꼼꼼한 작업으로 완성도 높은 결과를 만들어내고 있어요. 변화를 이끄는 퍼블리셔로서, 매 순간 새로운 도전에 즐겁게 임하고 있어요!
+                            </p>
+                        </div>
+
+                        <div class="btn-area">
+                            <div class="btn-wrap">
+                                <button class="btn-filter" data-filter="all">
+                                    <span class="title">All</span>
+                                    <div class="fill"></div>
+                                </button>
+                            </div>
+                          
+                            <div class="btn-wrap">
+                                <button class="btn-filter" data-filter="pc">
+                                    <span class="title">pc</span>
+                                    <div class="fill"></div>
+                                </button>
+                            </div>
+                            <div class="btn-wrap">
+                                <button class="btn-filter" data-filter="Mobile">
+                                    <span class="title">Mobile</span>
+                                    <div class="fill"></div>
+                                </button>
+                            </div>
+                            <div class="btn-wrap">
+                                <button class="btn-filter" data-filter="API">
+                                    <span class="title">API</span>
+                                    <div class="fill"></div>
+                                </button>
+                            </div>
+                          
+                            <div class="btn-wrap">
+                                <button class="btn-filter" data-filter="responsive">
+                                    <span class="title">Responsive</span>
+                                    <div class="fill"></div>
+                                </button>
+                            </div>
+                            <div class="btn-wrap">
+                                <button class="btn-filter" data-filter="Renewal">
+                                    <span class="title">Renewal</span>
+                                    <div class="fill"></div>
+                                </button>
+                            </div>
+                        </div>
+                           
+                        
+
+                        <ul class="content-list">
+                        
+                            <li class="content-item naver" data-category="pc">
+                               
+                                
+                                    <a href="https://wjdaldus2015.github.io/work2/" target="_blank">
+                                        <div class="thumb-area" >
+                                            <video src="./assets/img/네이버.mp4" loop="loop" autoplay="autoplay" muted="muted"  preload="auto"></video>
+                                        </div>
+                                    </a>
+
+                                    <div class="info-area">
+                                        <div class="flex">
+                                            <h3 class="title">NAVER</h3>
+                                            <div class="link-wrap">
+                                                <a href="https://wjdaldus2015.github.io/work2/" class="link-site" target="_blank">GO SITE</a>
+                                                <a href="https://velog.io/@wjdaldus2017/%EB%84%A4%EC%9D%B4%EB%B2%84-%ED%81%B4%EB%A1%A0-%EC%BD%94%EB%94%A9" class="link-velog" target="_blank">CODE REVIEW</a>
+                                            </div>
+                                        </div>
+                                        <p class="desc">네이버 공식 사이트를 클론 코딩하여 만든 적응형 PC 버전 웹사이트로, 시맨틱 마크업과 웹 접근성을 위해 IS 기법과 IR 기법을 중점적으로 사용하였으며, 특히 웹 접근성을 높이기 위해 WAI-ARIA 속성을 적용하여 시각 장애를 포함한 다양한 사용자들이 더욱 쉽게 웹사이트를 이용할 수 있도록 설계하였습니다.</p>
+                                    </div>
+                             
+                            
+                            </li>
+                            <li class="content-item moosinsa" data-category="Mobile,API">
+                               
+                                <a href="https://wjdaldus2015.github.io/work4/" target="_blank">
+                                    <div class="thumb-area">
+                                     <img src="https://www.apparelnews.co.kr/upfiles/manage/202106/e4897e4a7b5af300bde186721e970852.png" alt=>
+                                    </div>
+                                </a>
+                                <div class="info-area">
+                                    <div class="flex">
+                                        <h3 class="title">무신사</h3>
+                                        <div class="link-wrap">
+                                            <a href="https://wjdaldus2015.github.io/work4/" class="link-site" target="_blank">GO SITE</a>
+                                            <a href="https://velog.io/@wjdaldus2017/%EB%AC%B4%EC%8B%A0%EC%82%AC-%ED%81%B4%EB%A1%A0-%EC%BD%94%EB%94%A9" class="link-velog" target="_blank">CODE REVIEW</a>
+                                        </div>
+                                    </div>
+                                    <p class="desc">
+                                         JSON 비동기 통신을 이용해 데이터를 바인딩해 클론코딩한 일체형 웹 사이트 입니다. 반복문(foreach)을 사용해 웹 페이지에 동적으로 데이터를 출력하였고 GSAP Draggable 플러그인을 활용하여 스와이퍼 이벤트를 구현하여 사용자가 손쉽게 콘텐츠를 스와이프로 탐색할 수 있도록 제작했습니다.</p>
+                                </div>
+                                
+                            
+                            </li>
+                            <li class="content-item wooah" data-category="pc,responsive">
+                               
+                                <a href="https://wjdaldus2015.github.io/work5/" target="_blank">
+                                    <div class="thumb-area">
+                                       <img src="https://woowahan-cdn.woowahan.com/static/image/company/pc/image_sustainable_declaration.jpg?a63b3cee" alt=>
+                                    </div>
+                                </a>
+                                <div class="info-area">
+                                    <div class="flex">
+                                        <h3 class="title">우아한<br class="m">형제들</h3>
+                                        <div class="link-wrap">
+                                            <a href="https://wjdaldus2015.github.io/work5/" class="link-site" target="_blank">GO SITE</a>
+                                            <a href="https://velog.io/@wjdaldus2017/%EC%9A%B0%EC%95%84%ED%95%9C-%ED%98%95%EC%A0%9C%EB%93%A4-%ED%81%B4%EB%A1%A0%EC%BD%94%EB%94%A9" class="link-velog" target="_blank">CODE REVIEW</a>
+                                        </div>
+                                    </div>
+                                    <p class="desc"> Swiper와 Jquery를 주요 라이브러리로 사용한 반응형 PC 버전 웹사이트 입니다. Swiper 라이브러리를 활용해 이미지마다 개별 모션을 넣어 생동감 있는 슬라이드 전환을 구현했고 미디어쿼리를 통해 다양한 기기에서 최적화된 화면을 제공하는 반응형 웹사이트로 완성했습니다. </p>
+                                </div>
+                                
+                            
+                            </li>
+                            <li class="content-item tesla" data-category="pc,Renewal,responsive">
+                               
+                                <a href="https://wjdaldus2015.github.io/work1/" target="_blank">
+                                    <div class="thumb-area">
+                                        <video loop="loop" autoplay="autoplay" muted="muted"  preload="auto" src="https://digitalassets.tesla.com/tesla-contents/video/upload/Cybertruck-Beyond-Prepared-Desktop.mp4 "><source src="https://digitalassets.tesla.com/tesla-contents/video/upload/Cybertruck-Beyond-Prepared-Desktop.mp4 " type="video/mp4"></video>
+                                    </div>
+                                </a>
+                                <div class="info-area">
+                                    <div class="flex">
+                                        <h3 class="title">Tesla</h3>
+                                        <div class="link-wrap">
+                                            <a href="https://wjdaldus2015.github.io/work1/" class="link-site" target="_blank">GO SITE</a>
+                                            <a href="https://velog.io/@wjdaldus2017/cyber-truck-cherryinvestments" class="link-velog" target="_blank">CODE REVIEW</a>
+                                        </div>
+                                    </div>
+                                    <p class="desc">Tesla cybertruck 웹페이지 리뉴얼 작업에서 Cherry Investments 웹사이트의 레이아웃을 참고하여 모던하고 직관적인 디자인을 구현하였습니다. 사용자 경험을 강화하기 위해 커서 애니메이션과 패럴랙스 스크롤링 효과를 적용하였으며, Swiper와 jQuery를 활용한 다채로운 인터랙티브 요소를 추가하여 페이지 전환과 콘텐츠 탐색이 역동적으로 이루어지도록 했습니다. </p>
+                                </div>
+                               
+                            
+                            </li>
+                            <li class="content-item cityhall" data-category="pc,adaptive">
+                               
+                                <a href="https://wjdaldus2015.github.io/work3/" target="_blank">
+                                    <div class="thumb-area">
+                                       <img src="https://news.tbs.seoul.kr/Upload/Image/20200508/00000000000000202011.jpg" alt=>
+                                    </div>
+                                </a>
+                                <div class="info-area">
+                                    <div class="flex">
+                                        <h3 class="title">서울시청</h3>
+                                        <div class="link-wrap">
+                                            <a href="https://wjdaldus2015.github.io/work3/" class="link-site" target="_blank">GO SITE</a>
+                                            <a href="https://velog.io/@wjdaldus2017/%EC%84%9C%EC%9A%B8%EC%8B%9C%EC%B2%AD-%ED%81%B4%EB%A1%A0%EC%BD%94%EB%94%A9" class="link-velog" target="_blank">CODE REVIEW</a>
+                                        </div>
+                                    </div>
+                                    <p class="desc"> Swiper 라이브러리를 활용해 슬라이드 쇼에 재생/정지 버튼 기능을 추가하고, 크로스브라우징 처리에 대해 심도 있게 학습할 수 있었습니다. 또한, 웹 접근성 향상을 위해 시맨틱 마크업을 준수하였으며, slideToggle 함수를 사용하여 드롭다운 메뉴를 구현해 사용자 편의성을 높였습니다. 이를 통해 다양한 기기와 브라우저에서 일관된 경험을 제공할 수 있는 적응형 웹페이지를 완성하였습니다.</p>
+                                </div>
+                                
+                            
+                            </li>
+                            <li class="content-item bissell" data-category="pc,responsive,responsive">
+                               
+                                <a href="https://wjdaldus2015.github.io/work6/" target="_blank">
+                                    <div class="thumb-area">
+                                       <img src="https://images.squarespace-cdn.com/content/v1/5303dbe8e4b0be42cb1bbc01/1588973235211-8PFWDXWG1R6A6ACF4QXR/bissell-logo-5.png?format=1500w" alt=>
+                                    </div>
+                                </a>
+                                <div class="info-area">
+                                    <div class="flex">
+                                        <h3 class="title">Bissell</h3>
+                                        <div class="link-wrap">
+                                            <a href="https://wjdaldus2015.github.io/work6/" class="link-site" target="_blank">GO SITE</a>
+                                            <a href="https://velog.io/@wjdaldus2017/Bissell-%ED%81%B4%EB%A1%A0-%EC%BD%94%EB%94%A9" class="link-velog" target="_blank">CODE REVIEW</a>
+                                        </div>
+                                    </div>
+                                    <p class="desc">타임라인과 라벨을 활용한 애니메이션 흐름 제어를 구현하여, 사용자 상호작용에 따라 자연스러운 전환 효과를 제공했습니다. 또한, stagger 애니메이션을 통해 여러 요소들이 순차적으로 등장하도록 하여 시각적 집중도를 높이고 이미지 시퀀싱을 적용해 장면 전환이 매끄럽고 역동적으로 표현되도록 했습니다. 페이지의 각 섹션에는 각기 다른 헤드라인 애니메이션을 추가하여 콘텐츠에 따라 독창적인 연출을 부여하고, 미디어 쿼리를 통해 다양한 기기에서 최적화된 반응형 웹페이지를 완성하였습니다.</p>
+                                </div>
+                             
+                            
+                            </li>
+                           
+                        </ul>
+                    </div>
+
+
+
+
+
+                    
+                </section>
+            </div>
+
+          
+
+           
+            <section class="sc-about">
+                <div class="inner">
+                  
+                <h2 class="headline">마크업<br class="m">디벨로퍼 과정<br>[*올라운드프렌즈]</h2>
+                  <ul class="about-list">
+                    <li class="about-item" >
+                        <span class="title">[HTML & CSS3]</span>
+                        <ul class="sub">
+                            <li class="sub-item">
+                                검색 엔진에서 웹사이트의 가시성을 높이는 SEO 원리와 최적화 기법 학습</li>
+                            <li class="sub-item">
+                                장애인 및 다양한 사용자들이 차별 없이 콘텐츠에 접근할 수 있도록 웹 접근성 가이드라인에 따라 디자인 및 개발</li>
+                            <li class="sub-item">
+                                다양한 웹 브라우저 환경에서 일관된 사용자 경험을 제공할 수 있도록 크로스 브라우징 가능한 퍼블리싱 학습</li>
+                            <li class="sub-item">
+                                Photoshop제플린으로 작성된 시안 분석하여 사이트 구현: 정확한 수치 도출을위한 툴 사용법 학습.</li>
+                            <li class="sub-item">
+                                미디어 쿼리를 사용하여 PC, 태블릿, 스마트폰 등 다양한 디바이스에서 최적화된 웹 페이지 제공 및 반응형 웹 디자인을 적용하여 유연한 레이아웃과 디자인 구현</li>
+                            <li class="sub-item">
+                                CSS3을 활용해 애니메이션 효과를 구현하여 사용자 경험 개선. Transition, Transform 등을 이용한 인터랙티브한 애니메이션 요소 추가</li>
+                            <li class="sub-item">
+                                SCSS(Sass)를 사용해 스타일시트의 효율성을 높이고, 복잡한 CSS를 체계적으로 관리. 전처리기를 사용해 변수, 믹스인, 중첩 등을 적용하여 생산성을 향상</li>
+                        </ul>
+                       
+                    </li>
+                    <li class="about-item">
+                        <span class="title">[JavaScript]</span>
+                        <ul class="sub">
+                            <li class="sub-item">
+                                최신 ES6 문법을 기반으로 한 자바스크립트 프로젝트 개발. 화살표 함수, 템플릿 리터럴, 클래스 등 현대적인 자바스크립트 문법을 이해하고 활용
+                            </li>
+                            <li class="sub-item">
+                                Fetch API를 사용한 비동기 통신을 통해 서버와 데이터를 주고받으며 동적 웹 애플리케이션 제작.
+                            </li>
+                            <li class="sub-item">
+                                기본문법을 통해 자바스크립트 작동원리를 이해하고 소스분석 및 활용
+                            </li>
+                            <li class="sub-item">
+                                GSAP, Swiper 등 자바스크립트 기반 라이브러리 및 플러그인을 활용하여 애니메이션 및 슬라이더와 같은 기능을 구현
+                            </li>
+                            <li class="sub-item">
+                                JavaScript를 실제 프로젝트에 사용하여 실습
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="about-item">
+                        <span class="title">[JQuery]</span>
+                        <ul class="sub">
+                            <li class="sub-item">
+                                JQuery의 다양한 문법을 익히고, 실무에서 자주 사용되는 기능 구현. DOM 조작, 이벤트 핸들링 등 핵심 기능 학습</li>
+                            <li class="sub-item">
+                               JQuery를 활용한 실제 프로젝트 진행, 간결한 코드를 통해 개발 속도와 유지보수성을 개선</li>
+                        </ul>
+                    </li>
+                    <li class="about-item">
+                        <span class="title">[개인 포트폴리오]</span>
+                        <ul class="sub">
+                            <li class="sub-item">
+                               매주 1개의 포트폴리오 프로젝트를 완료하여 실무에서 요구되는 기술력을 실습</li>
+                            <li class="sub-item">
+                                웹 표준 및 접근성 규정을 준수한 포트폴리오 제작. HTML, CSS, JavaScript를 조합하여 사용자가 접근하기 쉽고, 유지보수 가능한 웹사이트 개발</li>
+                            <li class="sub-item">
+                                프로젝트 파일 관리 및 버전 컨트롤을 위해 Git을 사용하고, GitHub를 통해 포트폴리오를 배포 및 공유. 협업을 위한 브랜치 전략 학습</li>
+                        </ul>
+                      
+                    </li>
+                    <li class="about-item">
+                        <span class="title">[팀 프로젝트]</span>
+                        <ul class="sub">
+                            <li class="sub-item">4명 이상의 팀으로 구성된 협업 프로젝트 수행. Git을 활용해 팀원 간의 협업을 통해 프로젝트 파일 관리 및 코드 통합</li>
+                            <li class="sub-item">실무와 유사한 프로젝트 환경에서 웹사이트 제작 전반을 경험, 역할 분담과 커뮤니케이션 능력 향상</li>
+                        </ul>
+                    </li>
+                   
+                  </ul>
+
+                </div>
+
+             
+              
+            </section>
+            <div class="bottom-marquee">
+                <ul class="marq-list">
+                    <li class="marq-item">
+                        <span class="title">PUBLISHER</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">웹 접근성</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">KEEP LEARNING</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">성장</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                  
+                    <li class="marq-item">
+                        <span class="title">INTERACTION</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">감각</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                   
+                    <li class="marq-item">
+                        <span class="title">FOLLOW TREND</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">PUBLISHER</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">웹 접근성</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">KEEP LEARNING</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">성장</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                  
+                    <li class="marq-item">
+                        <span class="title">INTERACTION</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                    <li class="marq-item">
+                        <span class="title">감각</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                   
+                    <li class="marq-item">
+                        <span class="title">FOLLOW TREND</span>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M2.57144 10.4286V10.4286C7.77616 10.4286 12.0087 6.20471 12 1V1V1C11.9913 6.20471 16.2239 10.4286 21.4286 10.4286V10.4286" stroke="black" stroke-width="2"></path>
+                            <path d="M12 23V1" stroke="black" stroke-width="2"></path>
+                        </svg>
+                    </li>
+                   
+                  
+                  
+                   
+                </ul>
+            </div>
+            
+        </main>
+        <footer id="footer">
+            <h2 class="blind">랜딩 페이지 푸터</h2>
+
+            <div class="inner">
+
+               <div class="footer-content">
+                    <a href="" class="name">MI YEON</a>
+                    <div class="bg">
+                        <div class="bg-inner">
+                            <video loop="" autoplay="" muted="" playsinline="" data-wf-ignore="true" data-object-fit="cover"><source data-wf-ignore="true"><source src="https://assets.website-files.com/63f5d378a903c2a12583ce2f/64132dde932dbe26445541a5_BG-transcode.webm" data-wf-ignore="true"></video>
+                        </div>
+                    </div>
+                    <div class="contact">
+                        <h3 class="title">Let's work together</h3>
+                        <a href="mailto:wjdaldus2015@naver.com">wjdaldus2015@naver.com</a>
+                        <a href="tel:+01036871049">010-3687-1049</a>
+                    </div>
+               </div>
+
+               <div class="footer-bottom">
+                    <a href="https://velog.io/@wjdaldus2017/posts" class="velog">Velog</a>
+                    <div class="by">@2024 </div>
+               </div>
+            </div>
+               
+           
+        </footer>
+    </div>
+</body>
+</html>

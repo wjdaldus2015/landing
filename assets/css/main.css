@@ -1,0 +1,435 @@
+.sc-intro{
+   height: 100vh;
+   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: right;
+}
+
+.sc-intro .bg {
+    position: absolute;
+    top: 0%;
+    bottom: 0%;
+    left: 0%;
+    right: 0%;
+    height: 100vh; 
+    width: 100%;
+    overflow: hidden;
+   
+}
+.sc-intro .bg-inner {
+    width: 100%;
+   height: 100%;
+    opacity: 0.3;
+    -webkit-transform: scale(1.5);
+    transform: scale(1.5);
+   
+    
+}
+.sc-intro .bg-inner video {
+    width: 100%;
+    height: 100%;
+    -o-object-fit: cover;
+    object-fit: cover;
+}
+.sc-intro .title{
+   z-index: 500;
+    font-size: clamp(5em, 7.5vw, 7.5em);
+    line-height: 1.2;
+    font-weight: 800;
+    background: linear-gradient(to right, rgb(255, 255, 255) 50%, rgba(255, 255, 255, 0.5) 50%);
+    background-size: 200% 100%;
+    background-position-x: 100%;
+    color: transparent;
+    background-clip: text;
+ 
+}
+
+
+.sc-projects{
+
+    position: relative;
+    padding: 115px 0;
+    z-index: 5;
+  
+}
+.sc-projects .content-item {
+    display: block; /* 처음에는 모든 항목이 표시됩니다 */
+}
+.sc-projects .content-item.active {
+    display: block; /* 필터링된 항목만 활성화 상태로 표시 */
+}
+
+.sc-projects .content-item.hidden {
+    display: none; /* 필터링 결과에 맞지 않는 항목은 숨깁니다 */
+}
+.sc-projects .desc-area{
+    display: flex;
+    flex-direction: column;
+}
+.sc-projects .desc-area .title{
+    font-weight: 400;
+    font-style: normal;
+    font-size: calc(var(--title-size)* 0.45);
+    line-height: 1.66;
+    color: #888;
+    margin-bottom: 30px;
+}
+.sc-projects .desc-area .desc{
+    font-size: calc(var(--title-size)* 0.25);
+    line-height: 1.2;
+}
+.btn-filter {
+    position: relative;
+    width: 12.5rem;
+    height: 12.5rem;
+    border-radius: 30px;
+    overflow: hidden;
+    border: 1px solid #fff;
+    cursor: pointer;
+    background-color: transparent;
+    transition: border-color 0.2s ease-out;
+    z-index: 1; /* 요소 내용이 fill 위에 오도록 */
+}
+
+.btn-filter .fill {
+    position: absolute;
+    bottom: 0; 
+    left: 0;
+    width: 100%;
+    height: 0;
+    background-color: #70ff4d; 
+    transition: height 0.2s ease-out;
+    z-index: -1; /* fill이 다른 내용 뒤에 오도록 */
+}
+
+.btn-filter:hover {
+    color: black;
+    border-color: black;
+}
+
+.btn-filter:hover .fill {
+    height: 100%;
+}
+
+
+.btn-area{
+   margin: 30px 0;
+    display: flex;
+    justify-content: end;
+    gap: 15px;
+    padding-bottom: 50px;
+}
+
+
+.btn-area button{
+   padding: 2px 25px;
+    width: 100%;
+    height: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+transform: translateY(0%) scale(1) rotate(0.001deg);
+
+border-radius: 20px;
+
+}
+
+
+
+
+.sc-projects .content-list{
+   display: grid;
+   grid-template-columns: repeat(2,1fr);
+   gap:  min(6vw, 6em);;
+   
+}
+
+
+
+.sc-projects .content-item{
+    display: flex;
+    flex-direction: column;
+    
+}
+.sc-projects .content-item .flex{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+}
+
+.sc-projects .content-item .link-site,
+.sc-projects .content-item .link-velog{
+   border: 1px solid #70ff4d;
+   padding: 2px 25px;
+   border-radius: 20px;
+   backdrop-filter: blur(20px);
+    background-color: rgba(16, 18, 20, 0.25);
+}
+
+
+.sc-projects .thumb-area{
+    border-radius: 30px;
+    overflow: hidden;
+    transition: .3s ;
+}
+.sc-projects .content-item:hover .thumb-area{
+    border-radius: 50%;
+}
+.sc-projects .content-item:hover .thumb-area img{
+    transform: scale(1.2);
+    transition: 7s;
+}
+.sc-projects .content-item .thumb-area img{
+    
+    aspect-ratio: 1/1;
+    object-fit: cover;
+    transition: 1s ;
+
+}
+.sc-projects .content-item .thumb-area video{
+    /* max-width: 300px;
+    max-height: 300px; */
+    /* border-radius: 4vh; */
+    aspect-ratio: 1/1;
+    object-fit: cover;
+}
+.sc-projects .content-item .info-area{
+    padding-top: 20px;
+}
+.sc-projects .content-item .info-area .title{
+    font-weight: 450;
+    font-size: calc(var(--title-size)* 0.25);
+    line-height: 1.2;
+}
+.sc-projects .content-item .info-area .desc{
+    color: rgba(var(--color-light-rgb), 0.8);
+    font-weight: 400;
+    margin-top: 20px;
+}
+
+.sc-about{
+    position: relative;
+    padding-top: 120px;
+    background: #e0e0df;
+    border-radius: 4vh;
+    color: var(--color-dark);
+}
+.sc-about .headline{
+    font-size: calc(var(--title-size)* 0.45);
+    line-height: 1.5;
+  padding-bottom: 50px;
+}
+
+.sc-about .about-item{
+  display: flex;
+flex-direction: column;
+  gap: 15px;
+  padding: 20px 0;
+border-top: 1px solid var(--color-border);
+}
+.sc-about .about-item .title{
+    font-size: 18px;
+}
+
+.sc-about .about-item .desc-area{
+flex: 1;
+display: flex;
+align-items: center;
+}
+
+.sc-about .about-item .sub{
+    flex: 1;
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
+
+ 
+   
+}
+.sc-about .about-item .sub-item{
+    position: relative;
+    display: flex;
+    gap: 8px;
+ align-items: center;
+ padding-left: 15px;
+
+
+
+
+   
+}
+.sc-about .about-item .sub-item::before{
+    position: absolute;
+    top: -6px;left: 0;
+    content: '•'; 
+    color: #2ed06e; 
+    font-size: 20px; 
+}
+
+ .bottom-marquee{
+    overflow: hidden;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    background: var(--color-primary);
+    position: relative;
+    display: flex;
+    width: max-content;
+    animation: marquee 60s infinite linear;
+    margin: 100px 0;
+    
+ 
+   
+ }
+.bottom-marquee .marq-list{
+    display: flex;
+ }
+.bottom-marquee .marq-item{
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    
+ }
+.bottom-marquee .marq-item svg{
+    transform: rotate(90deg) scaleY(1);
+    display: flex;align-items: center;
+    width: 50px;
+    height: 50px;
+ 
+ }
+.bottom-marquee .title{
+    white-space: nowrap;
+    text-transform: uppercase;
+  color: #000;
+    padding: 0.5em 0;
+    margin-left: 0.5em;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: calc(var(--title-size) * 0.45);
+    line-height: 1.2;
+    font-weight: 500;
+ }
+ 
+ 
+ @keyframes marquee {
+    0% { transform: translateX(-50%); }
+    100% { transform: translateX(0); }
+ }
+
+ .m{
+    display: none;
+ }
+
+
+
+
+        /* 1040이하~ 768px [1024px] */
+        @media (max-width:1040px) {
+            
+            .sc-card .headline {
+                font-size: calc(var(--title-size)* 0.9);
+               
+            }
+            
+            .sc-news  .link-wrap{
+                margin: 40px 0 50px;
+               position: static;
+             
+            }
+            .sc-news .link-more{
+            
+             border-radius: 30px;
+              width: 100%;
+              padding: 10px 10px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+                
+        }
+      
+        .sc-news .news-item a{
+            display: flex;
+            flex-direction: column;
+        }
+
+        }
+   
+        @media (max-width:930px) {
+            .sc-projects .link-wrap{
+                display: flex;
+                gap: 5px;
+                flex-direction: column;
+                text-align: center;
+            }
+    }
+
+
+        /* 767px ~ 320px  [320px]*/
+        @media (max-width:750px) {
+           .m{
+            display: block;
+           }
+
+           .sc-intro .title{
+           
+            font-size: 60px;
+    
+          
+         }
+            .group-text{
+                padding-top: 0;
+             }
+             .group-text .desc{
+             font-size: 13vw;
+             }
+             .sc-projects .btn-area{
+                display: none;
+             }
+             .sc-projects{
+                padding: 64px 0;
+               
+            }
+            .sc-projects .desc-area .desc{
+                margin-bottom: 50px;
+            }
+            
+            .sc-projects .desc-area .title{
+                font-size: calc(var(--title-size)* 0.35);
+            }
+            .sc-projects .desc-area .desc{
+                font-size: calc(var(--title-size)* 0.3);
+            }
+            .sc-projects .content-list{
+                display: flex;
+                gap: 150px;
+                flex-direction: column;
+            }
+           
+            .btn-area{
+                display: flex;
+              flex-wrap: wrap;
+                gap: 15px;
+                padding-bottom: 50px;
+            }
+        
+            .sc-projects .content-item .info-area .title {
+                font-weight: 450;
+                font-size: calc(var(--title-size)* 0.35);
+                line-height: 1.2;
+            }
+            .sc-projects .content-item:hover .thumb-area {
+                border-radius: 30px; 
+            }
+            
+            .sc-projects .content-item:hover .thumb-area img {
+                transform: none; 
+                transition: none; 
+            }
+            .sc-intro .title{
+                 color: #fff;
+            }
+                  
+        
+        }
