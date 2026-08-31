@@ -480,6 +480,7 @@ border-radius: 20px;
 .sc-about{
     position: relative;
     padding-top: 120px;
+    padding-bottom: 120px;
     background: #e0e0df;
     border-radius: 4vh;
     color: var(--color-dark);
@@ -490,50 +491,101 @@ border-radius: 20px;
   padding-bottom: 50px;
 }
 
-.sc-about .about-item{
-  display: flex;
-flex-direction: column;
-  gap: 15px;
-  padding: 20px 0;
-border-top: 1px solid var(--color-border);
+.sc-about .about-group{
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 40px;
+    padding: 50px 0;
+    border-top: 1px solid var(--color-border);
 }
-.sc-about .about-item .title{
-    font-size: 18px;
+.sc-about .group-title{
+    position: sticky;
+    top: 120px;
+    align-self: start;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(var(--color-dark-rgb), 0.45);
 }
 
-.sc-about .about-item .desc-area{
-flex: 1;
-display: flex;
-align-items: center;
+.sc-about .career-item + .career-item{
+    margin-top: 40px;
+}
+.sc-about .career-head{
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.sc-about .career-head + .sub{
+    margin-top: 24px;
+}
+.sc-about .period{
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--color-primary);
+}
+.sc-about .company{
+    font-size: calc(var(--title-size)* 0.28);
+    font-weight: 500;
+    line-height: 1.2;
+}
+.sc-about .company-sub{
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--color-gray);
+}
+.sc-about .role{
+    font-size: 16px;
+    color: var(--color-text);
 }
 
-.sc-about .about-item .sub{
+.sc-about .sub{
     flex: 1;
     display: flex;
-    gap: 5px;
-    flex-direction: column;
-
- 
-   
-}
-.sc-about .about-item .sub-item{
-    position: relative;
-    display: flex;
     gap: 8px;
- align-items: center;
- padding-left: 15px;
-
-
-
-
-   
+    flex-direction: column;
 }
-.sc-about .about-item .sub-item::before{
+.sc-about .sub-item{
+    position: relative;
+    padding-left: 15px;
+    line-height: 1.6;
+}
+.sc-about .sub-item::before{
     position: absolute;
-    top: -6px;left: 0;
-    content: '•'; 
-    color: var(--color-primary); 
-    font-size: 20px; 
+    top: -4px;left: 0;
+    content: '•';
+    color: var(--color-primary);
+    font-size: 20px;
+}
+
+.sc-about .skill-list{
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+.sc-about .skill-item{
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 20px;
+    align-items: baseline;
+}
+.sc-about .skill-name{
+    font-size: 16px;
+    font-weight: 500;
+}
+.sc-about .skill-tags{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.sc-about .skill-tags li{
+    padding: 5px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 30px;
+    font-size: 15px;
+    line-height: 1.4;
 }
 
  .bottom-marquee{
@@ -624,6 +676,13 @@ align-items: center;
         }
    
         @media (max-width:930px) {
+            .sc-about .about-group{
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+            .sc-about .group-title{
+                position: static;
+            }
             .sc-projects .link-wrap{
                 display: flex;
                 gap: 5px;
@@ -697,6 +756,24 @@ align-items: center;
             }
             .sc-intro .title{
                  color: #fff;
+            }
+            .sc-about{
+                padding-top: 64px;
+                padding-bottom: 64px;
+            }
+            .sc-about .about-group{
+                padding: 36px 0;
+            }
+            .sc-about .company{
+                font-size: calc(var(--title-size)* 0.35);
+            }
+            .sc-about .skill-item{
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .sc-about .skill-tags li{
+                font-size: 14px;
+                padding: 4px 13px;
             }
                   
         
