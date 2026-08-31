@@ -1,3 +1,78 @@
+/* 인트로 로딩 중과 히어로 영역에서는 보라 점 커서를 감춘다 */
+.curser-wrap.is-hidden,
+html.is-intro .curser-wrap{
+    opacity: 0 !important;
+}
+
+/* ===== 인트로 로딩 화면 ===== */
+#intro{
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    width: 100%;
+    height: 100%;
+    cursor: none;
+}
+html.is-intro,
+html.is-intro body{
+    overflow: hidden;
+}
+
+/* 화면을 덮는 막 - 커서 자리만 뚫려 있다 */
+#intro .intro-veil{
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+}
+#intro .veil-fill{
+    fill: #08090c;
+}
+
+/* 진행 표시 - 화면 좌하단 격자에 고정된 얇은 눈금 */
+#intro .intro-meter{
+    position: absolute;
+    left: 40px;
+    bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    pointer-events: none;
+}
+#intro .intro-count{
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: .26em;
+    font-variant-numeric: tabular-nums;
+    color: rgba(var(--color-light-rgb), 0.55);
+}
+#intro .intro-rule{
+    display: block;
+    width: 200px;
+    height: 1px;
+    background-color: rgba(var(--color-light-rgb), 0.16);
+}
+#intro .intro-rule i{
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-primary);
+    transform: scaleX(0);
+    transform-origin: left center;
+}
+
+@media (max-width: 750px){
+    #intro .intro-meter{
+        left: 24px;
+        bottom: 26px;
+        gap: 12px;
+    }
+    #intro .intro-rule{ width: 120px; }
+}
+
+
+
 .sc-intro{
    height: 100vh;
    display: flex;
@@ -13,37 +88,123 @@
     bottom: 0%;
     left: 0%;
     right: 0%;
-    height: 100vh; 
+    height: 100vh;
     width: 100%;
     overflow: hidden;
-   
+    background-color: #08090c;
 }
-.sc-intro .bg-inner {
-    width: 100%;
-   height: 100%;
-    opacity: 0.3;
-    -webkit-transform: scale(1.5);
-    transform: scale(1.5);
-   
-    
-}
-.sc-intro .bg-inner video {
+
+.sc-intro .space-canvas{
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    -o-object-fit: cover;
-    object-fit: cover;
+    display: block;
 }
+
+.sc-intro .intro-inner{
+    position: relative;
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    will-change: transform;
+}
+
+/* 섹션 마커 - ( I. ) 형태의 작은 라벨 */
+.sc-intro .eyebrow{
+    display: flex;
+    align-items: center;
+    margin-bottom: 40px;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: rgba(var(--color-light-rgb), 0.45);
+}
+.sc-intro .eyebrow i{
+    display: block;
+    width: 46px;
+    height: 1px;
+    margin: 0 14px;
+    background-color: rgba(var(--color-light-rgb), 0.25);
+}
+
 .sc-intro .title{
-   z-index: 500;
+    display: block;
     font-size: clamp(5em, 7.5vw, 7.5em);
-    line-height: 1.2;
+    line-height: 1.1;
     font-weight: 800;
-    background: linear-gradient(to right, rgb(255, 255, 255) 50%, rgba(255, 255, 255, 0.5) 50%);
-    background-size: 200% 100%;
-    background-position-x: 100%;
-    color: transparent;
-    background-clip: text;
- 
+    letter-spacing: -0.02em;
+    color: var(--color-light);
+}
+
+.sc-intro .title .line{
+    position: relative;
+    display: block;
+    perspective: 900px;
+}
+.sc-intro .title .line-in{
+    display: block;
+}
+.sc-intro .title .ch{
+    display: inline-block;
+    white-space: pre;
+    transform-origin: 50% 92%;
+    will-change: transform;
+}
+
+/* 글자가 펼쳐지기 전 그어지는 선 */
+.sc-intro .title .sweep{
+    position: absolute;
+    right: 0;
+    bottom: 0.14em;
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-primary);
+    transform: scaleX(0);
+    transform-origin: right center;
+}
+
+/* 한 글자만 떼어내는 강조 처리 */
+.sc-intro .title em{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 400;
+    padding: 0 .12em;
+    color: var(--color-primary);
+}
+
+/* 알파벳 릴 - 세로로 쌓인 글자를 칸 안에서 밀어 올린다 */
+.sc-intro .title em .reel-mask{
+    display: block;
+    height: 1em;
+    overflow: hidden;
+}
+.sc-intro .title em .reel{
+    display: block;
+    will-change: transform;
+}
+.sc-intro .title em .reel i{
+    display: block;
+    height: 1em;
+    line-height: 1em;
+    font-style: italic;
+    text-align: center;
+}
+/* 릴을 넣으면 인라인블록이 되므로 기준선을 맞춰준다 */
+.sc-intro .title em.reeling{
+    display: inline-block;
+    vertical-align: -0.1em;
+}
+
+.sc-intro .scroll-hint{
+    margin-top: 60px;
+    font-size: 11px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: rgba(var(--color-light-rgb), 0.35);
 }
 
 
@@ -53,16 +214,6 @@
     padding: 115px 0;
     z-index: 5;
   
-}
-.sc-projects .content-item {
-    display: block; /* 처음에는 모든 항목이 표시됩니다 */
-}
-.sc-projects .content-item.active {
-    display: block; /* 필터링된 항목만 활성화 상태로 표시 */
-}
-
-.sc-projects .content-item.hidden {
-    display: none; /* 필터링 결과에 맞지 않는 항목은 숨깁니다 */
 }
 .sc-projects .desc-area{
     display: flex;
@@ -76,41 +227,55 @@
     color: #888;
     margin-bottom: 30px;
 }
+
+/* 단어 단위 리빌 - 마스크 안에서 비스듬히 올라온다 */
+.sc-projects .desc-area .title .w-mask{
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    padding-bottom: 0.14em;
+    margin-bottom: -0.14em;
+}
+.sc-projects .desc-area .title .w-in{
+    display: inline-block;
+    will-change: transform;
+}
 .sc-projects .desc-area .desc{
     font-size: calc(var(--title-size)* 0.25);
     line-height: 1.2;
 }
-.btn-filter {
+.btn-tab {
     position: relative;
     width: 12.5rem;
     height: 12.5rem;
     border-radius: 30px;
     overflow: hidden;
-    border: 1px solid #fff;
+    border: 1px solid var(--color-black);
+    color: var(--color-black);
     cursor: pointer;
     background-color: transparent;
-    transition: border-color 0.2s ease-out;
     z-index: 1; /* 요소 내용이 fill 위에 오도록 */
 }
 
-.btn-filter .fill {
+.btn-tab .fill {
     position: absolute;
-    bottom: 0; 
+    bottom: 0;
     left: 0;
     width: 100%;
     height: 0;
-    background-color: #70ff4d; 
+    background-color: var(--color-light);
     transition: height 0.2s ease-out;
     z-index: -1; /* fill이 다른 내용 뒤에 오도록 */
 }
 
-.btn-filter:hover {
-    color: black;
-    border-color: black;
+.btn-tab:hover .fill,
+.btn-tab.active .fill {
+    height: 100%;
 }
 
-.btn-filter:hover .fill {
-    height: 100%;
+.btn-tab .count{
+    font-size: 12px;
+    color: var(--color-primary);
 }
 
 
@@ -128,6 +293,8 @@
     width: 100%;
     height: 100%;
 display: flex;
+flex-direction: column;
+gap: 6px;
 align-items: center;
 justify-content: center;
 transform: translateY(0%) scale(1) rotate(0.001deg);
@@ -139,34 +306,132 @@ border-radius: 20px;
 
 
 
+.sc-projects .slider{
+    position: relative;
+    height: min(72vh, 620px);
+    margin-bottom: 90px;
+    perspective: 1600px;
+    cursor: grab;
+    touch-action: pan-y;
+}
+.sc-projects .slider.grabbing{
+    cursor: grabbing;
+}
+.sc-projects .slider.grabbing .content-item{
+    user-select: none;
+}
+.sc-projects .slider.hidden{
+    display: none;
+}
+
 .sc-projects .content-list{
-   display: grid;
-   grid-template-columns: repeat(2,1fr);
-   gap:  min(6vw, 6em);;
-   
+    position: relative;
+    height: 100%;
+    transform-style: preserve-3d;
+}
+
+.sc-projects .content-item{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(34vw, 420px);
+    display: flex;
+    flex-direction: column;
+    will-change: transform, opacity;
+}
+
+.sc-projects .thumb-empty{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1/1;
+    padding: 20px;
+    text-align: center;
+    background-color: rgba(var(--color-light-rgb), 0.06);
+    border: 1px solid rgba(var(--color-light-rgb), 0.15);
+    color: rgba(var(--color-light-rgb), 0.45);
+    font-size: 14px;
+    letter-spacing: .08em;
 }
 
 
+.sc-projects .btn-prev,
+.sc-projects .btn-next{
+    position: absolute;
+    top: 38%;
+    z-index: 20;
+    width: 60px;
+    height: 60px;
+    border: 0;
+    background-color: transparent;
+    cursor: pointer;
+}
+.sc-projects .btn-prev{ left: 0; }
+.sc-projects .btn-next{ right: 0; }
 
-.sc-projects .content-item{
+.sc-projects .btn-prev::before,
+.sc-projects .btn-next::before{
+    content: '';
+    display: block;
+    width: 22px;
+    height: 22px;
+    margin: 0 auto;
+    border-top: 2px solid var(--color-primary);
+    border-right: 2px solid var(--color-primary);
+    transition: transform .2s ease-out;
+}
+.sc-projects .btn-prev::before{ transform: rotate(-135deg); }
+.sc-projects .btn-next::before{ transform: rotate(45deg); }
+.sc-projects .btn-prev:hover::before{ transform: rotate(-135deg) translate(3px, -3px); }
+.sc-projects .btn-next:hover::before{ transform: rotate(45deg) translate(3px, -3px); }
+
+.sc-projects .slider-dots{
+    position: absolute;
+    left: 0;
+    bottom: -50px;
+    z-index: 20;
     display: flex;
-    flex-direction: column;
-    
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+}
+.sc-projects .slider-dots .dot{
+    width: 8px;
+    height: 8px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background-color: rgba(var(--color-light-rgb), 0.3);
+    cursor: pointer;
+    transition: background-color .2s ease-out, transform .2s ease-out;
+}
+.sc-projects .slider-dots .dot.active{
+    background-color: var(--color-primary);
+    transform: scale(1.4);
 }
 .sc-projects .content-item .flex{
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
 
+.sc-projects .content-item .link-wrap{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
 }
 
 .sc-projects .content-item .link-site,
 .sc-projects .content-item .link-velog{
-   border: 1px solid #70ff4d;
+   border: 1px solid var(--color-primary);
    padding: 2px 25px;
    border-radius: 20px;
    backdrop-filter: blur(20px);
     background-color: rgba(16, 18, 20, 0.25);
+    white-space: nowrap;
 }
 
 
@@ -265,7 +530,7 @@ align-items: center;
     position: absolute;
     top: -6px;left: 0;
     content: '•'; 
-    color: #2ed06e; 
+    color: var(--color-primary); 
     font-size: 20px; 
 }
 
@@ -384,9 +649,6 @@ align-items: center;
              .group-text .desc{
              font-size: 13vw;
              }
-             .sc-projects .btn-area{
-                display: none;
-             }
              .sc-projects{
                 padding: 64px 0;
                
@@ -401,17 +663,27 @@ align-items: center;
             .sc-projects .desc-area .desc{
                 font-size: calc(var(--title-size)* 0.3);
             }
-            .sc-projects .content-list{
-                display: flex;
-                gap: 150px;
-                flex-direction: column;
+            .sc-projects .slider{
+                height: min(60vh, 460px);
             }
-           
+            .sc-projects .content-item{
+                width: 62vw;
+            }
+            .sc-projects .btn-prev,
+            .sc-projects .btn-next{
+                width: 40px;
+                height: 40px;
+            }
+
             .btn-area{
                 display: flex;
               flex-wrap: wrap;
                 gap: 15px;
                 padding-bottom: 50px;
+            }
+            .btn-tab{
+                width: 8rem;
+                height: 8rem;
             }
         
             .sc-projects .content-item .info-area .title {
