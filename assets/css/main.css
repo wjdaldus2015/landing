@@ -133,7 +133,9 @@ html.is-intro body{
 
 .sc-intro .title{
     display: block;
-    font-size: clamp(5em, 7.5vw, 7.5em);
+    max-width: 100%;
+    /* 최솟값을 vw 기준으로 낮춰야 좁은 화면에서 문장이 안 넘친다 */
+    font-size: clamp(1.7rem, 7vw, 7.5em);
     line-height: 1.1;
     font-weight: 800;
     letter-spacing: -0.02em;
@@ -637,12 +639,6 @@ align-items: center;
             display: block;
            }
 
-           .sc-intro .title{
-           
-            font-size: 60px;
-    
-          
-         }
             .group-text{
                 padding-top: 0;
              }

@@ -670,6 +670,10 @@ document.querySelectorAll('.sc-projects .slider').forEach(slider => {
 
   slider.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
+    // 화살표·도트·링크 위에서는 드래그를 잡지 않는다.
+    // 포인터를 캡처해버리면 클릭이 슬라이더로 가로채여 버튼이 안 눌린다
+    if (e.target.closest('.btn-prev, .btn-next, .dot, a')) return;
+
     dragging = true;
     startX = e.clientX;
     moved = 0;
