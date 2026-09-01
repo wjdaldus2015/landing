@@ -246,63 +246,82 @@ html.is-intro body{
     font-size: calc(var(--title-size)* 0.25);
     line-height: 1.2;
 }
+/* 탭 - 아래 슬라이더가 1px 흰 격자로 그려지는 3D 씬이라
+   탭도 같은 언어(헤어라인 + 넓은 자간 라벨)로 맞춘다 */
+.btn-area{
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    margin: 40px 0 46px;
+    border-bottom: 1px solid rgba(var(--color-light-rgb), 0.14);
+}
+
+.btn-wrap + .btn-wrap{
+    margin-left: 52px;
+}
+
 .btn-tab {
     position: relative;
-    width: 12.5rem;
-    height: 12.5rem;
-    border-radius: 30px;
-    overflow: hidden;
-    border: 1px solid var(--color-black);
-    color: var(--color-black);
-    cursor: pointer;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 9px;
+    width: auto;
+    height: auto;
+    padding: 0 2px 20px;
+    border: 0;
+    border-radius: 0;
     background-color: transparent;
-    z-index: 1; /* 요소 내용이 fill 위에 오도록 */
+    /* 흰색 투명도만으로 단계를 만든다. 색을 더 쓰면 금방 산만해진다 */
+    color: rgba(var(--color-light-rgb), 0.4);
+    cursor: pointer;
+    transition: color var(--animation-smooth);
 }
 
+.btn-tab .title{
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+/* 개수는 목차 번호처럼 위첨자로 붙인다 */
+.btn-tab .count{
+    position: relative;
+    top: -0.62em;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: .08em;
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+    opacity: .65;
+}
+
+.btn-tab:hover{
+    color: rgba(var(--color-light-rgb), 0.75);
+}
+.btn-tab.active{
+    color: var(--color-light);
+}
+
+/* 선택 표시는 헤어라인 위에 겹치는 1px 선.
+   히어로 타이틀의 sweep과 같은 문법이라 사이트 안에서 낯설지 않다 */
 .btn-tab .fill {
     position: absolute;
-    bottom: 0;
     left: 0;
+    bottom: -1px;
     width: 100%;
-    height: 0;
+    height: 1px;
     background-color: var(--color-light);
-    transition: height 0.2s ease-out;
-    z-index: -1; /* fill이 다른 내용 뒤에 오도록 */
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform .55s cubic-bezier(.16, 1, .3, 1);
+}
+.btn-tab.active .fill{
+    transform: scaleX(1);
 }
 
-.btn-tab:hover .fill,
-.btn-tab.active .fill {
-    height: 100%;
-}
-
-.btn-tab .count{
-    font-size: 12px;
-    color: var(--color-primary);
-}
-
-
-.btn-area{
-   margin: 30px 0;
-    display: flex;
-    justify-content: end;
-    gap: 15px;
-    padding-bottom: 50px;
-}
-
-
-.btn-area button{
-   padding: 2px 25px;
-    width: 100%;
-    height: 100%;
-display: flex;
-flex-direction: column;
-gap: 6px;
-align-items: center;
-justify-content: center;
-transform: translateY(0%) scale(1) rotate(0.001deg);
-
-border-radius: 20px;
-
+@media (prefers-reduced-motion: reduce){
+    .btn-tab .fill{ transition: none; }
 }
 
 
@@ -362,20 +381,15 @@ border-radius: 20px;
     position: absolute;
     top: 0;
     left: 0;
-    width: calc(25vw - 20px);
+    width: calc(33.333vw - 20px);
     display: flex;
     flex-direction: column;
     will-change: transform;
 }
 
-/* 노출 장수: 1920에서 4장, 1024에서 3장, 768에서 1.5장.
-   구간마다 뷰포트 폭의 1차식으로 이어 붙여 경계에서 폭이 튀지 않는다.
+/* 노출 장수: 1024 이상은 3장, 768에서 1.5장.
+   구간을 뷰포트 폭의 1차식으로 이어 붙여 경계에서 폭이 튀지 않는다.
    카드 폭 = 화면폭 / 장수 - 간격(20px) */
-@media (max-width: 1920px){
-    .sc-projects .content-item{
-        width: calc(15.476vw + 162.9px);
-    }
-}
 @media (max-width: 1024px){
     .sc-projects .content-item{
         width: calc(1004px - 66.667vw);
@@ -407,6 +421,8 @@ border-radius: 20px;
     opacity: 0;
     transform: translateY(24px);
     transition: opacity .55s ease-out, transform .85s cubic-bezier(.16, 1, .3, 1);
+    /* 왼쪽 카드부터 차례로 올라오도록 JS가 카드마다 넣는다 */
+    transition-delay: var(--reveal-delay, 0s);
 }
 .sc-projects.is-gl.is-ready .content-item.is-in .info-area{
     opacity: 1;
@@ -761,17 +777,23 @@ border-radius: 20px;
                 margin-right: -20px;
             }
 
+            /* 좁은 화면에서는 좌측 정렬이 desc 문단과 결이 맞는다 */
             .btn-area{
-                display: flex;
-              flex-wrap: wrap;
-                gap: 15px;
-                padding-bottom: 50px;
+                justify-content: flex-start;
+                margin: 30px 0 34px;
+            }
+            .btn-wrap + .btn-wrap{
+                margin-left: 32px;
             }
             .btn-tab{
-                width: 8rem;
-                height: 8rem;
+                padding-bottom: 14px;
+                gap: 7px;
             }
-        
+            .btn-tab .title{
+                font-size: 13px;
+                letter-spacing: .14em;
+            }
+
             .sc-projects .content-item .info-area .title {
                 font-weight: 450;
                 font-size: calc(var(--title-size)* 0.24);

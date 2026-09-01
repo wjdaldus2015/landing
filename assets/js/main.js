@@ -723,6 +723,7 @@ $('.btn-contact').click(function(){
     'uniform float uRadius;',
     'uniform float uOpacity;',
     'uniform float uMirror;',
+    'uniform float uBorder;',
     'varying vec2 vUv;',
     'void main() {',
     '  vec2 uv = (vUv - 0.5) * uCover + 0.5;',
@@ -731,6 +732,12 @@ $('.btn-contact').click(function(){
     '  vec2 d = abs(p) - (uSize * 0.5 - vec2(uRadius));',
     '  float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - uRadius;',
     '  float alpha = 1.0 - smoothstep(-1.0, 1.0, dist);',
+    // 테두리를 텍스처에 그리면 사각형이라 둥근 마스크에 모서리가 잘린다.
+    // 마스크와 같은 거리장으로 그려야 네 모서리가 정확히 맞물린다
+    '  if (uBorder > 0.0) {',
+    '    float inner = smoothstep(-uBorder - 1.0, -uBorder + 1.0, dist);',
+    '    color.rgb = mix(color.rgb, vec3(1.0), inner * alpha * 0.18);',
+    '  }',
     '  if (uMirror > 0.5) alpha *= pow(vUv.y, 4.0);',
     '  gl_FragColor = vec4(color.rgb, color.a * alpha * uOpacity);',
     '}'
@@ -898,9 +905,8 @@ $('.btn-contact').click(function(){
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = '#16181b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+    // 테두리는 여기서 그리지 않는다. 사각형이라 둥근 마스크에 모서리가 잘린다.
+    // 셰이더가 마스크와 같은 거리장으로 그린다(uBorder)
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.font = '500 48px sans-serif';
     ctx.textAlign = 'center';
@@ -909,7 +915,7 @@ $('.btn-contact').click(function(){
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.encoding = THREE.sRGBEncoding;
-    return { texture: texture, aspect: function () { return 16 / 9; } };
+    return { texture: texture, aspect: function () { return 16 / 9; }, border: 2 };
   }
 
   // 모든 카드가 같은 띠 위에 있어야 하므로 sheet 유니폼은 하나를 공유한다
@@ -931,7 +937,8 @@ $('.btn-contact').click(function(){
       uSize: { value: new THREE.Vector2(1, 1) },
       uRadius: { value: 26 },
       uOpacity: { value: mirror ? 0.13 : 1 },
-      uMirror: { value: mirror ? 1 : 0 }
+      uMirror: { value: mirror ? 1 : 0 },
+      uBorder: { value: source.border || 0 }
     };
     Object.keys(sheetUniforms).forEach(function (key) { uniforms[key] = sheetUniforms[key]; });
 
@@ -1013,6 +1020,7 @@ $('.btn-contact').click(function(){
       stageW: 0,
       stageH: 0,
       ready: false,
+      revealHold: false,
       target: 0,
       current: 0,
       vel: 0
@@ -1033,12 +1041,12 @@ $('.btn-contact').click(function(){
       // 납작해지기 때문이다. 지평선(화면 정중앙)이 카드 아래 HORIZON_DROP만큼에 오도록
       // 무대 높이를 잡으면, 카드는 위쪽에 앉고 아래 절반이 전부 바닥이 된다.
       // 카드 크기에 비례해서 노출 장수가 바뀌어도 비율이 그대로다
-      const topPad = 40;
-      const horizonDrop = 30;
+      // 바닥은 카드가 딛고 선 자리에 둔다. 여기서 더 내리면 바닥에 비친 상이
+      // 화면 아래로 빠져나가 안 보인다. 카메라도 바닥보다 위에 있어야 한다
       panel.cardY = 0;
-      panel.camY = -(panel.cardH / 2 + horizonDrop);
-      panel.floorY = panel.camY - Math.round(panel.cardH * 0.9);
-      panel.stageH = Math.round(2 * (topPad + panel.cardH + horizonDrop));
+      panel.camY = 0;
+      panel.floorY = -panel.cardH / 2 - 24;
+      panel.stageH = Math.round(panel.cardH * 2.5);
 
       // 캡션이 카드 폭을 따라가도록 넘겨준다
       section.style.setProperty('--card-w', panel.cardW + 'px');
@@ -1152,7 +1160,7 @@ $('.btn-contact').click(function(){
         card.mirror.visible = inView;
 
         // 카드 중심이 무대 밖으로 나가면 캡션끼리 겹친다. 그 전에 접는다
-        const edge = panel.cardW * 0.45;
+        const edge = panel.cardW * 0.28;
         const style = card.item.style;
         if (!inView || cx < edge || cx > panel.stageW - edge) {
           style.visibility = 'hidden';
@@ -1161,7 +1169,12 @@ $('.btn-contact').click(function(){
           return;
         }
         style.visibility = '';
-        card.item.classList.add('is-in');
+        if (!panel.revealHold && !card.item.classList.contains('is-in')) {
+          // 화면 왼쪽 카드부터 차례로 올라온다
+          const delay = Math.max(0, Math.min(1, cx / panel.stageW)) * 0.22;
+          style.setProperty('--reveal-delay', delay.toFixed(2) + 's');
+          card.item.classList.add('is-in');
+        }
         style.left = cx + 'px';
         style.top = cy + 'px';
         style.transformOrigin = '50% 50%';
@@ -1187,12 +1200,24 @@ $('.btn-contact').click(function(){
     panels.forEach(function (p) { p.group.visible = p === panel; });
     active = panel;
     panel.el.appendChild(renderer.domElement);
+    // 탭을 바꾸면 캡션이 처음부터 다시 올라온다.
+    // display:none 이던 요소에 곧바로 클래스를 붙이면 시작 상태가 없어 트랜지션이
+    // 걸리지 않는다. 내려간 상태를 한 프레임 그린 뒤에 붙인다
+    panel.cards.forEach(function (card) { card.item.classList.remove('is-in'); });
+    panel.revealHold = true;
     panel.refresh();
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        panel.revealHold = false;
+        dirty = true;
+      });
+    });
     dirty = true;
   }
 
   // 마우스 그랩 / 터치 스와이프
   let dragging = false;
+  let captured = false;
   let pointerX = 0;
   let moved = 0;
   let velocity = 0;
@@ -1203,10 +1228,10 @@ $('.btn-contact').click(function(){
       // 카드 대부분이 링크라 링크 위에서도 드래그를 받아야 한다.
       // 실제로 끌었을 때만 아래 click 핸들러가 이동을 막는다
       dragging = true;
+      captured = false;
       pointerX = e.clientX;
       moved = 0;
       velocity = 0;
-      el.setPointerCapture(e.pointerId);
       el.classList.add('grabbing');
     });
 
@@ -1215,6 +1240,13 @@ $('.btn-contact').click(function(){
       const dx = e.clientX - pointerX;
       pointerX = e.clientX;
       moved += Math.abs(dx);
+
+      // 포인터는 실제로 끌기 시작한 뒤에 잡는다. pointerdown에서 곧바로 잡으면
+      // 브라우저가 click 대상을 링크가 아닌 슬라이더로 바꿔 카드 링크가 죽는다
+      if (!captured && moved > 4) {
+        captured = true;
+        try { el.setPointerCapture(e.pointerId); } catch (err) {}
+      }
       active.target -= dx;
       // 마지막 몇 프레임을 섞어야 손 떨림에 관성이 튀지 않는다
       velocity = velocity * 0.6 + dx * 0.4;
@@ -1223,6 +1255,7 @@ $('.btn-contact').click(function(){
     function endDrag() {
       if (!dragging) return;
       dragging = false;
+      captured = false;
       el.classList.remove('grabbing');
       // 관성만큼 더 흐른 뒤 가장 가까운 카드에 물린다
       const flick = Math.max(-3, Math.min(3, -velocity * 8 / active.slot));
@@ -1295,13 +1328,14 @@ $('.btn-contact').click(function(){
       onScreen = entries[0].isIntersecting;
     }, { rootMargin: '200px 0px' }).observe(section);
 
-    // 캡션은 섹션이 실제로 보일 때부터 올라온다
+    // 섹션이 아니라 슬라이더를 본다. 섹션은 위쪽 소개 문단이 길어서
+    // 카드가 화면에 나타나기 한참 전에 발동해 버린다
     const reveal = new IntersectionObserver(function (entries) {
-      if (!entries[0].isIntersecting) return;
+      if (!entries.some(function (e) { return e.isIntersecting; })) return;
       section.classList.add('is-ready');
       reveal.disconnect();
-    }, { threshold: 0.15 });
-    reveal.observe(section);
+    }, { threshold: 0.3 });
+    sliderEls.forEach(function (el) { reveal.observe(el); });
   } else {
     section.classList.add('is-ready');
   }
