@@ -1138,9 +1138,12 @@ $('.btn-contact').click(function(){
         const style = card.item.style;
         if (!inView || cx < edge || cx > panel.stageW - edge) {
           style.visibility = 'hidden';
+          // 다시 들어올 때 캡션이 처음부터 올라오도록 되돌린다
+          card.item.classList.remove('is-in');
           return;
         }
         style.visibility = '';
+        card.item.classList.add('is-in');
         style.left = cx + 'px';
         style.top = cy + 'px';
         style.transformOrigin = '50% 50%';
@@ -1273,6 +1276,16 @@ $('.btn-contact').click(function(){
     new IntersectionObserver(function (entries) {
       onScreen = entries[0].isIntersecting;
     }, { rootMargin: '200px 0px' }).observe(section);
+
+    // 캡션은 섹션이 실제로 보일 때부터 올라온다
+    const reveal = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      section.classList.add('is-ready');
+      reveal.disconnect();
+    }, { threshold: 0.15 });
+    reveal.observe(section);
+  } else {
+    section.classList.add('is-ready');
   }
 
   let resizeTimer;

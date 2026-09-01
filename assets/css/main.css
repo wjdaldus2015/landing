@@ -382,6 +382,23 @@ border-radius: 20px;
     padding-top: 0;
     text-shadow: 0 1px 12px rgba(0, 0, 0, 0.65);
 }
+
+/* 섹션이 보이고 카드가 자리를 잡으면 캡션이 아래에서 올라온다 */
+.sc-projects.is-gl .info-area{
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity .55s ease-out, transform .85s cubic-bezier(.16, 1, .3, 1);
+}
+.sc-projects.is-gl.is-ready .content-item.is-in .info-area{
+    opacity: 1;
+    transform: none;
+}
+@media (prefers-reduced-motion: reduce){
+    .sc-projects.is-gl .info-area{
+        transform: none;
+        transition: opacity .2s linear;
+    }
+}
 .sc-projects.is-gl .info-area .title{
     font-size: 28px;
 }
