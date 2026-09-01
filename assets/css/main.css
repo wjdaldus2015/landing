@@ -362,10 +362,29 @@ border-radius: 20px;
     position: absolute;
     top: 0;
     left: 0;
-    width: min(32vw, 620px);
+    width: calc(25vw - 20px);
     display: flex;
     flex-direction: column;
     will-change: transform;
+}
+
+/* 노출 장수: 1920에서 4장, 1024에서 3장, 768에서 1.5장.
+   구간마다 뷰포트 폭의 1차식으로 이어 붙여 경계에서 폭이 튀지 않는다.
+   카드 폭 = 화면폭 / 장수 - 간격(20px) */
+@media (max-width: 1920px){
+    .sc-projects .content-item{
+        width: calc(15.476vw + 162.9px);
+    }
+}
+@media (max-width: 1024px){
+    .sc-projects .content-item{
+        width: calc(1004px - 66.667vw);
+    }
+}
+@media (max-width: 768px){
+    .sc-projects .content-item{
+        width: calc(66.667vw - 20px);
+    }
 }
 
 /* 썸네일은 WebGL이 그린다. DOM 쪽은 투명하게 두되 링크 클릭 영역으로 남긴다 */
@@ -376,9 +395,9 @@ border-radius: 20px;
 /* 캡션은 참고 사이트처럼 카드 안쪽 좌하단에 얹는다 */
 .sc-projects.is-gl .info-area{
     position: absolute;
-    left: 34px;
-    right: 34px;
-    bottom: 26px;
+    left: calc(var(--card-w, 620px) * 0.06);
+    right: calc(var(--card-w, 620px) * 0.06);
+    bottom: calc(var(--card-w, 620px) * 0.045);
     padding-top: 0;
     text-shadow: 0 1px 12px rgba(0, 0, 0, 0.65);
 }
@@ -399,13 +418,15 @@ border-radius: 20px;
         transition: opacity .2s linear;
     }
 }
+/* 캡션 크기는 카드 폭(--card-w, JS가 넣는다)에 비례해야
+   노출 장수가 바뀌어도 카드 대비 비율이 그대로다 */
 .sc-projects.is-gl .info-area .title{
-    font-size: 28px;
+    font-size: clamp(15px, calc(var(--card-w, 620px) * 0.055), 30px);
 }
 .sc-projects.is-gl .link-site,
 .sc-projects.is-gl .link-velog{
-    padding: 2px 14px;
-    font-size: 12px;
+    padding: 2px calc(var(--card-w, 620px) * 0.028);
+    font-size: clamp(9px, calc(var(--card-w, 620px) * 0.026), 13px);
 }
 
 .sc-projects .thumb-empty{
@@ -739,9 +760,6 @@ border-radius: 20px;
                 margin-left: -20px;
                 margin-right: -20px;
             }
-            .sc-projects .content-item{
-                width: 82vw;
-            }
 
             .btn-area{
                 display: flex;
@@ -756,7 +774,7 @@ border-radius: 20px;
         
             .sc-projects .content-item .info-area .title {
                 font-weight: 450;
-                font-size: calc(var(--title-size)* 0.35);
+                font-size: calc(var(--title-size)* 0.24);
                 line-height: 1.2;
             }
             .sc-projects .content-item:hover .thumb-area {

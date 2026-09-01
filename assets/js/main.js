@@ -599,7 +599,7 @@ $('.btn-contact').click(function(){
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const CAM_Z = 1500;
-  const GAP = 140;          // 카드 사이 간격(px)
+  const GAP = 20;           // 카드 사이 간격(px). CSS의 카드 폭 계산과 같은 값이어야 한다
   const LERP = 0.09;
   const VEL_NORM = 70;      // 이 속도(px/프레임)에서 변형이 최대가 된다
   const MAX_TEXTURE = 1600;
@@ -835,7 +835,10 @@ $('.btn-contact').click(function(){
     if (u.W > 0.001) z += u.leanA * leanRamp(x / u.W);
 
     const scale = CAM_Z / (CAM_Z - z);
-    return { sx: u.stageW / 2 + x * scale, sy: u.stageH / 2 - y * scale };
+    return {
+      sx: u.stageW / 2 + x * scale,
+      sy: u.stageH / 2 - (y - u.camY) * scale
+    };
   }
 
   function makeSource(item) {
@@ -1002,6 +1005,8 @@ $('.btn-contact').click(function(){
       group: group,
       cardW: 0,
       cardH: 0,
+      cardY: 0,
+      camY: 0,
       floorY: 0,
       slot: 0,
       total: 0,
@@ -1024,10 +1029,19 @@ $('.btn-contact').click(function(){
         return;
       }
 
-      // 카드는 화면 한가운데. 남는 자리는 전부 바닥이 깔린다.
-      // 슬라이더가 sc-about 바로 위까지 닿으므로 여기 높이가 곧 바닥의 세로 길이다
-      panel.stageH = Math.round(panel.cardH + 585);
-      panel.floorY = -panel.cardH / 2 - 24;
+      // 카드는 월드 원점에 두고 카메라를 내린다. 카드를 올리면 바닥이 눈높이에 붙어
+      // 납작해지기 때문이다. 지평선(화면 정중앙)이 카드 아래 HORIZON_DROP만큼에 오도록
+      // 무대 높이를 잡으면, 카드는 위쪽에 앉고 아래 절반이 전부 바닥이 된다.
+      // 카드 크기에 비례해서 노출 장수가 바뀌어도 비율이 그대로다
+      const topPad = 40;
+      const horizonDrop = 30;
+      panel.cardY = 0;
+      panel.camY = -(panel.cardH / 2 + horizonDrop);
+      panel.floorY = panel.camY - Math.round(panel.cardH * 0.9);
+      panel.stageH = Math.round(2 * (topPad + panel.cardH + horizonDrop));
+
+      // 캡션이 카드 폭을 따라가도록 넘겨준다
+      section.style.setProperty('--card-w', panel.cardW + 'px');
       panel.slot = panel.cardW + GAP;
       panel.total = cards.length * panel.slot;
 
@@ -1041,6 +1055,7 @@ $('.btn-contact').click(function(){
       renderer.setSize(panel.stageW, panel.stageH, false);
       camera.aspect = panel.stageW / panel.stageH;
       camera.fov = 2 * Math.atan((panel.stageH / 2) / CAM_Z) * 180 / Math.PI;
+      camera.position.y = panel.camY;
       camera.updateProjectionMatrix();
 
       // 프러스텀 반너비·반높이. 원본이 띠의 기준으로 쓰는 값
@@ -1050,7 +1065,9 @@ $('.btn-contact').click(function(){
 
       // 바닥은 카메라 앞쪽까지 나와야 화면 아래가 안 빈다.
       // 카메라에 가까울수록 확대되므로 화면 바닥을 덮는 깊이를 역산한다
-      const needScale = panel.stageH / (2 * Math.max(Math.abs(panel.floorY), 1)) + 0.4;
+      // 카메라와 바닥의 높이차가 화면 아래를 덮는 데 필요한 확대율을 정한다
+      const drop = Math.max(panel.camY - panel.floorY, 1);
+      const needScale = panel.stageH / (2 * drop) + 0.4;
       const nearZ = Math.min(CAM_Z * 0.72, CAM_Z * (1 - 1 / needScale));
       const depth = nearZ + run;
 
@@ -1088,7 +1105,8 @@ $('.btn-contact').click(function(){
         V: V,
         leanA: W * LEAN_DOOR,
         stageW: panel.stageW,
-        stageH: panel.stageH
+        stageH: panel.stageH,
+        camY: panel.camY
       };
 
       const half = panel.total / 2;
@@ -1100,11 +1118,11 @@ $('.btn-contact').click(function(){
         const x = ((raw % panel.total) + panel.total) % panel.total - half;
 
         // 회전도 호 배치도 없다. 평평한 한 줄. 휘는 건 셰이더가 한다
-        card.mesh.position.set(x, 0, 0);
+        card.mesh.position.set(x, panel.cardY, 0);
         card.mesh.scale.set(panel.cardW, panel.cardH, 1);
         card.mesh.renderOrder = -Math.abs(x);
 
-        card.mirror.position.set(x, 2 * panel.floorY, 0);
+        card.mirror.position.set(x, 2 * panel.floorY - panel.cardY, 0);
         card.mirror.scale.set(panel.cardW, -panel.cardH, 1);
 
         const texAspect = card.aspect();
@@ -1119,10 +1137,10 @@ $('.btn-contact').click(function(){
         });
 
         // 카드 네 변의 중점을 셰이더와 같은 식으로 옮겨 화면 좌표를 낸다
-        const left = deform(x - halfCardW, 0, shape);
-        const right = deform(x + halfCardW, 0, shape);
-        const top = deform(x, halfCardH, shape);
-        const bottom = deform(x, -halfCardH, shape);
+        const left = deform(x - halfCardW, panel.cardY, shape);
+        const right = deform(x + halfCardW, panel.cardY, shape);
+        const top = deform(x, panel.cardY + halfCardH, shape);
+        const bottom = deform(x, panel.cardY - halfCardH, shape);
 
         const cx = (left.sx + right.sx) / 2;
         const cy = (top.sy + bottom.sy) / 2;
@@ -1291,7 +1309,16 @@ $('.btn-contact').click(function(){
   let resizeTimer;
   window.addEventListener('resize', function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () { active.refresh(); }, 200);
+    resizeTimer = setTimeout(function () {
+      // 숨은 패널은 지금 잴 수 없으니 다음에 보일 때 다시 재도록 표시만 해둔다
+      panels.forEach(function (panel) {
+        if (panel !== active) panel.ready = false;
+      });
+      active.refresh();
+      // 슬라이더 높이가 여기서 바뀐다. ScrollTrigger는 이미 갱신을 끝냈으므로
+      // 다시 불러주지 않으면 핀 구간이 낡은 높이로 남아 레이아웃이 어긋난다
+      if (window.ScrollTrigger) ScrollTrigger.refresh();
+    }, 200);
   });
 
   document.querySelectorAll('.btn-tab').forEach(function (button) {
