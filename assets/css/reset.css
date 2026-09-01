@@ -8,8 +8,9 @@
    --color-white: #FFFFFF;
    --color-black-rgb: 0, 0, 0;
    --color-black: rgba(var(--color-black-rgb), 1);
-   --color-primary: #800080;
-   --color-primary-dark: #5C005C;
+   /* 포인트 컬러는 히어로 배경 셰이더가 쓰는 연두와 같은 값이다 */
+   --color-primary: #ecff3e;
+   --color-primary-dark: #677a05;
    --color-gray: #828282;
    --color-darkgray-rgb: 30, 30, 32;
    --color-darkgray: rgba(var(--color-darkgray-rgb), 1);

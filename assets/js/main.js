@@ -138,393 +138,1550 @@ $('.btn-contact').click(function(){
 })();
 
 
-// 타이틀 - 천의 물결이 글자로 이어진다
+
 (function () {
   const inner = document.querySelector('.sc-intro .intro-inner');
   if (!inner) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    inner.classList.add('is-in');
+    return;
+  }
 
-  // 글자 단위로 쪼갠다 (<em> 강조 글자는 통째로 한 글자 취급)
-  const chars = [];
-  inner.querySelectorAll('.line-in').forEach(function (line) {
-    const frag = document.createDocumentFragment();
+  // 글자 하나를 칸에 담는다. 칸이 넘치는 부분을 잘라 위아래로 빠지게 한다
+  function cell(ch, delay) {
+    const box = document.createElement('span');
+    box.className = 'cell';
+    const inner2 = document.createElement('i');
+    inner2.textContent = ch;
+    inner2.style.transitionDelay = delay + 'ms';
+    box.appendChild(inner2);
+    return box;
+  }
 
-    Array.from(line.childNodes).forEach(function (node) {
-      if (node.nodeType === 1) {
-        node.classList.add('ch');
-        frag.appendChild(node);
-        chars.push(node);
+
+  // <br class="m"> 은 이 프로젝트에서 750px 이하에서만 줄을 끊는 표시라
+  // 넓은 화면에서는 한 줄로 잇고, 좁아지면 다시 끊어 담는다
+  const narrow = window.matchMedia('(max-width: 750px)');
+
+  function splitParts(html) {
+    const chunks = html.split(/(<br\b[^>]*>)/i);
+    const parts = [];
+    let buf = '';
+    chunks.forEach(function (chunk) {
+      if (/^<br\b/i.test(chunk)) {
+        // class 에 m 이 붙은 줄바꿈은 좁은 화면에서만 실제로 끊는다
+        const onlyNarrow = /class\s*=\s*["'][^"']*\bm\b/i.test(chunk);
+        if (!onlyNarrow || narrow.matches) {
+          parts.push(buf);
+          buf = '';
+        } else {
+          buf += ' ';
+        }
         return;
       }
-      Array.from(node.textContent).forEach(function (c) {
-        const span = document.createElement('span');
-        span.className = 'ch';
-        span.textContent = c === ' ' ? ' ' : c;
-        frag.appendChild(span);
-        chars.push(span);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = chunk;
+      buf += (tmp.textContent || '');
+    });
+    parts.push(buf);
+    return parts
+      .map(function (s) { return s.replace(/\s+/g, ' ').trim(); })
+      .filter(function (s) { return s.length; });
+  }
+
+  function buildLine(el, baseDelay) {
+    const parts = splitParts(el.dataset.src);
+
+    const frag = document.createDocumentFragment();
+    let n = 0;
+    parts.forEach(function (text) {
+      const row = document.createElement('span');
+      row.className = 'row';
+      const move = document.createElement('span');
+      move.className = 'move';
+      Array.from(text).forEach(function (ch) {
+        move.appendChild(cell(ch === ' ' ? ' ' : ch, baseDelay + n * 35));
+        n++;
       });
+      row.appendChild(move);
+      frag.appendChild(row);
     });
-
-    line.textContent = '';
-    line.appendChild(frag);
-  });
-
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-  // 강조 글자는 따로 연출한다
-  const accents = chars.filter(function (c) { return c.tagName === 'EM'; });
-  const plain = chars.filter(function (c) { return c.tagName !== 'EM'; });
-
-  // 줄마다 선을 하나씩 깔아둔다
-  const sweeps = [];
-  inner.querySelectorAll('.title .line').forEach(function (line) {
-    const bar = document.createElement('i');
-    bar.className = 'sweep';
-    line.appendChild(bar);
-    sweeps.push(bar);
-  });
-
-  // 강조 글자를 세로 릴로 바꾼다 (오도미터가 숫자를 굴리는 방식)
-  // 아래로 삐져나오는 글자는 칸에 잘리므로 제외한다
-  const POOL = 'abcdefhiklmnorstuvwxz';
-  const REEL_LEN = 16;
-  const reels = accents.map(function (em) {
-    const finalChar = em.textContent.trim();
-
-    // 칸 너비를 최종 글자에 맞춰 고정 - 이래야 문장이 안 흔들린다
-    const width = em.getBoundingClientRect().width;
-
-    const mask = document.createElement('span');
-    mask.className = 'reel-mask';
-    const reel = document.createElement('span');
-    reel.className = 'reel';
-
-    for (let i = 0; i < REEL_LEN; i++) {
-      const cell = document.createElement('i');
-      cell.textContent = i === REEL_LEN - 1
-        ? finalChar
-        : POOL[(Math.random() * POOL.length) | 0];
-      reel.appendChild(cell);
-    }
-
-    mask.appendChild(reel);
-    em.dataset.char = finalChar;
-    em.textContent = '';
-    em.appendChild(mask);
-    em.classList.add('reeling');
-    em.style.width = width + 'px';
-
-    return reel;
-  });
-
-  // 릴이 멈추면 껍데기를 걷어내고 평범한 글자로 되돌린다
-  function clearReels() {
-    accents.forEach(function (em) {
-      em.textContent = em.dataset.char;
-      em.classList.remove('reeling');
-      em.style.width = '';
+    el.textContent = '';
+    el.appendChild(frag);
+  }
+  function buildWords(el, baseDelay, step) {
+    const words = el.textContent.replace(/\s+/g, ' ').trim().split(' ');
+    const frag = document.createDocumentFragment();
+    let n = 0;
+    words.forEach(function (word, wi) {
+      const wrap = document.createElement('span');
+      wrap.className = 'word';
+      Array.from(word).forEach(function (ch) {
+        wrap.appendChild(cell(ch, baseDelay + n * step));
+        n++;
+      });
+      frag.appendChild(wrap);
+      if (wi < words.length - 1) frag.appendChild(document.createTextNode(' '));
     });
+    el.textContent = '';
+    el.appendChild(frag);
   }
 
-  gsap.set(inner, { autoAlpha: 0 });
-  document.addEventListener('intro:done', start, { once: true });
+  const t1 = inner.querySelector('.title-line.t1');
+  const t2 = inner.querySelector('.title-line.t2');
+  const copy = inner.querySelector('.copy');
+  const eyebrow = inner.querySelector('.eyebrow');
 
-  function start() {
-    gsap.set(inner, { autoAlpha: 1 });
-    // 강조 글자는 슬롯이 돌기 시작할 때 나타난다
-    gsap.set(accents, { opacity: 0 });
+  // 원문을 남겨 둬야 화면 폭이 바뀔 때 다시 담을 수 있다
+  const titleLines = [];
+  if (t1) titleLines.push({ el: t1, delay: 0 });
+  if (t2) titleLines.push({ el: t2, delay: 180 });
+  titleLines.forEach(function (line) { line.el.dataset.src = line.el.innerHTML; });
 
-    gsap.timeline({ defaults: { ease: 'expo.out' }, onComplete: ripple })
-      .from('.sc-intro .eyebrow', { opacity: 0, y: 12, duration: 1 }, 0)
-
-      // 1. 선이 먼저 그어진다
-      .to(sweeps, {
-        scaleX: 1, transformOrigin: 'right center',
-        duration: 0.85, stagger: 0.12, ease: 'power3.inOut'
-      }, 0.1)
-
-      // 2. 글자가 선 위로 접혀 있다가 펼쳐진다
-      .from(plain, {
-        yPercent: 115,
-        rotateX: -96,
-        z: -180,
-        opacity: 0,
-        duration: 1.25,
-        stagger: { each: 0.022 }
-      }, 0.5)
-
-      // 3. 전체 초점이 맞아 들어온다
-      .from('.sc-intro .title', { filter: 'blur(18px)', duration: 1.4 }, 0.5)
-
-      // 4. 강조 글자가 나타나고 릴이 돌다 제 글자에 멈춘다
-      .to(accents, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 1.0)
-      .fromTo(reels,
-        { yPercent: 0 },
-        {
-          yPercent: function (_, el) { return -(el.childElementCount - 1) / el.childElementCount * 100; },
-          duration: 2,
-          ease: 'expo.out',
-          stagger: 0.18,
-          onComplete: clearReels
-        }, 1.0)
-
-      // 5. 선이 반대 방향으로 걷힌 뒤 지운다
-      .to(sweeps, {
-        scaleX: 0, transformOrigin: 'left center',
-        duration: 0.9, stagger: 0.1, ease: 'power3.inOut',
-        onComplete: function () {
-          sweeps.forEach(function (bar) { bar.remove(); });
-        }
-      }, 1.6);
+  function renderTitles() {
+    titleLines.forEach(function (line) { buildLine(line.el, line.delay); });
   }
+  renderTitles();
 
-  // 등장이 끝나면 천처럼 계속 일렁인다
-  function ripple() {
-    (function loop() {
-      const t = performance.now() * 0.001;
-      for (let i = 0; i < chars.length; i++) {
-        const phase = t * 1.05 + i * 0.24;
-        chars[i].style.transform =
-          'translateY(' + (Math.sin(phase) * 3.4).toFixed(2) + 'px)' +
-          ' rotate(' + (Math.sin(phase - 0.5) * 1.2).toFixed(2) + 'deg)';
-      }
-      requestAnimationFrame(loop);
-    })();
-  }
+  // 750px 경계를 넘나들면 줄 구성이 달라지므로 다시 담는다
+  const onNarrowChange = function () {
+    renderTitles();
+    document.dispatchEvent(new CustomEvent('intro:rebuilt'));
+  };
+  if (narrow.addEventListener) narrow.addEventListener('change', onNarrowChange);
+  else if (narrow.addListener) narrow.addListener(onNarrowChange);
 
-  // 텍스트 블록 전체가 마우스를 아주 조금 따라간다
-  let x = 0, y = 0, tx = 0, ty = 0;
+  if (copy) buildWords(copy, 40, 5);
+  if (eyebrow) eyebrow.style.transitionDelay = '0ms';
 
-  window.addEventListener('mousemove', e => {
-    tx = (e.clientX - window.innerWidth / 2) * 0.014;
-    ty = (e.clientY - window.innerHeight / 2) * 0.014;
-  });
+  Array.prototype.forEach.call(
+    document.querySelectorAll('.sc-intro .outro-line'),
+    function (el) { buildWords(el, 0, 35); }
+  );
 
-  (function loop() {
-    x += (tx - x) * 0.04;
-    y += (ty - y) * 0.04;
-    inner.style.transform = 'translate(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px)';
-    requestAnimationFrame(loop);
-  })();
+  document.addEventListener('intro:done', function () {
+    inner.classList.add('is-in');
+  }, { once: true });
 })();
 
 
-// 배경 - three.js 점으로 짜인 천
+
 (function () {
   const canvas = document.querySelector('.sc-intro .space-canvas');
   if (!canvas || typeof THREE === 'undefined') return;
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-  const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-  renderer.setPixelRatio(pixelRatio);
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 300);
-  camera.position.z = 34;
-
-  const group = new THREE.Group();
-  group.rotation.z = -0.12;
-  scene.add(group);
-
-  // 가로로 긴 격자 - 천을 짜는 실의 교차점이라고 보면 된다
-  const SEG_X = 640;
-  const SEG_Y = 112;
-  const WIDTH = 72;
-  const HEIGHT = 11;
-  const COUNT = SEG_X * SEG_Y;
-
-  const pos = new Float32Array(COUNT * 3);
-  const scatter = new Float32Array(COUNT * 3);
-  const rand = new Float32Array(COUNT);
-
-  let i = 0;
-  for (let ix = 0; ix < SEG_X; ix++) {
-    for (let iy = 0; iy < SEG_Y; iy++) {
-      pos[i * 3] = -WIDTH / 2 + (ix / (SEG_X - 1)) * WIDTH;
-      pos[i * 3 + 1] = -HEIGHT / 2 + (iy / (SEG_Y - 1)) * HEIGHT;
-      pos[i * 3 + 2] = 0;
-
-      const t = Math.acos(2 * Math.random() - 1);
-      const p = Math.random() * Math.PI * 2;
-      scatter[i * 3] = Math.sin(t) * Math.cos(p);
-      scatter[i * 3 + 1] = Math.sin(t) * Math.sin(p);
-      scatter[i * 3 + 2] = Math.cos(t);
-
-      rand[i] = Math.random();
-      i++;
-    }
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geometry.setAttribute('aScatter', new THREE.BufferAttribute(scatter, 3));
-  geometry.setAttribute('aRand', new THREE.BufferAttribute(rand, 1));
-
-  const VERT = [
-    'attribute vec3 aScatter;',
-    'attribute float aRand;',
-    'uniform float uTime;',
-    'uniform float uPixelRatio;',
-    'uniform vec2 uMouse;',
-    'uniform vec2 uAspect;',
-    'uniform float uRadius;',
-    'uniform float uEntry;',
-    'varying vec3 vNormal;',
-    'varying float vRand;',
-    // 격자 좌표를 천의 실제 모양으로 옮긴다
-    'vec3 cloth(vec2 g, float t){',
-    '  float x = g.x;',
-    '  float y = g.y;',
-    // 길이 방향으로 흘러가는 물결 - 주기가 다른 파형을 겹친다
-    '  float w = sin(x * 0.15 + t * 0.62) * 1.9',
-    '          + sin(x * 0.33 - t * 0.44) * 0.75',
-    '          + sin(x * 0.06 + y * 0.42 + t * 0.31) * 1.5;',
-    // 폭 방향 비틀림 - 천이 꼬이면서 앞뒷면이 드러난다
-    '  float a = sin(x * 0.098 + t * 0.36) * 1.05',
-    '          + sin(x * 0.041 - t * 0.23) * 0.62;',
-    '  vec3 p;',
-    '  p.x = x;',
-    '  p.y = y * cos(a) + w + x * 0.13;',
-    '  p.z = y * sin(a) + sin(x * 0.21 - t * 0.5) * 1.1;',
-    '  return p;',
-    '}',
-    'void main(){',
-    '  vec2 g = position.xy;',
-    '  vec3 p = cloth(g, uTime);',
-    // 이웃 두 점을 더 구해서 그 면의 법선을 얻는다
-    '  vec3 gx = cloth(g + vec2(0.35, 0.0), uTime);',
-    '  vec3 gy = cloth(g + vec2(0.0, 0.35), uTime);',
-    '  vec3 n = normalize(cross(gx - p, gy - p));',
-    // 흩어지기 전 위치를 먼저 투영해 커서와의 거리를 잰다
-    '  vec4 pr0 = projectionMatrix * modelViewMatrix * vec4(p, 1.0);',
-    '  vec2 ndc = pr0.xy / pr0.w;',
-    '  float f = smoothstep(uRadius, 0.0, distance(ndc * uAspect, uMouse * uAspect));',
-    '  p += n * f * 1.3;',
-    '  p += aScatter * f * (0.4 + aRand * 1.2);',
-    // 진입할 때 한 번 흩어졌다가 천으로 모인다
-    '  p += aScatter * (1.0 - uEntry) * (6.0 + aRand * 16.0);',
-    '  vNormal = normalize(normalMatrix * n);',
-    '  vRand = aRand;',
-    '  vec4 mv = modelViewMatrix * vec4(p, 1.0);',
-    '  gl_PointSize = (0.85 + pow(aRand, 2.0) * 0.95) * uPixelRatio * (72.0 / -mv.z);',
-    '  gl_Position = projectionMatrix * mv;',
-    '}'
-  ].join('\n');
-
-  const FRAG = [
-    'varying vec3 vNormal;',
-    'varying float vRand;',
-    'void main(){',
-    '  vec2 uv = gl_PointCoord - 0.5;',
-    '  float d = length(uv);',
-    '  if (d > 0.5) discard;',
-    '  float z = sqrt(max(0.0, 0.25 - d * d)) * 2.0;',
-    '  vec3 n = normalize(vec3(uv * 2.0, z));',
-    '  vec3 L = normalize(vec3(-0.4, 0.6, 0.7));',
-    '  float diff = dot(n, L) * 0.5 + 0.5;',
-    // 천은 앞뒤가 다 보이므로 법선의 방향을 접어서 쓴다
-    '  float form = abs(dot(vNormal, L));',
-    '  form = 0.16 + 0.84 * pow(form, 1.5);',
-    '  vec3 col = vec3(0.014, 0.014, 0.017);',
-    '  col += vec3(0.5, 0.5, 0.54) * pow(diff, 2.2) * form * (0.72 + vRand * 0.28);',
-    '  col += vec3(1.0) * pow(form, 4.0) * 0.16;',
-    '  gl_FragColor = vec4(col, smoothstep(0.5, 0.42, d));',
-    '}'
-  ].join('\n');
-
-  const uniforms = {
-    uTime: { value: 0 },
-    uPixelRatio: { value: pixelRatio },
-    uMouse: { value: new THREE.Vector2(99, 99) },
-    uAspect: { value: new THREE.Vector2(1, 1) },
-    uRadius: { value: 0.5 },
-    uEntry: { value: 0 }
+  // ── 참고 사이트 기본값 ──────────────────────────────
+  const C = {
+    noiseScale: 0.365, displacement: 0.16,
+    baseColor: '#688500', peakColor: '#0b0e13', fogColor: '#08090d',
+    fogInner: 1.5, fogOuter: 6.3, focusX: 0, focusZ: 0.4,
+    waveSpeed: 1.55, waveAmplitude: 0.09, waveLength: 1.1, waveFalloff: 0.07,
+    pulseWidth: 2,
+    hoverRadius: 0.65, hoverStrength: 0.12, hoverEasing: 0.05,
+    baseAmplitude: 0.02, baseSpeed: 0.35, baseWavelength: 8,
+    lightAngle: -179, lightElevation: 17, lightColor: '#ecff3e',
+    bumpiness: 0.23, specularStrength: 0, specularSharpness: 128,
+    bumpNoiseScale: 77.7, bumpNoiseStrength: 0.32,
+    corridorWidth: 1.8, corridorHeight: 0.425, corridorSharpness: 1.85,
+    particleColor: '#ecff3e', particleSize: 2, particleOpacity: 1,
+    particleLift: 0.045, particleSizeJitter: 0.56,
+    particleXZJitter: 0.1, particleYJitter: 0,
+    particleHoverColor: '#ffffff', particleHoverStrength: 1,
+    pLightDir: new THREE.Vector3(0.4, 0.8, 0.6),
+    pAmbient: 0.48, pDiffuse: 0.44, pSpec: 0.34, pSpecPower: 11,
+    pWaveBoost: 0.85, pWaveSpeed: 1.85, pWavePeriod: 2.85, pWaveWidth: 1.1,
+    causticsColor: '#94ff3d', causticsIntensity: 0.14, causticsScale: 0.72,
+    causticsSpeed: 0.26, causticsContrast: 2.1, causticsDistort: 0,
+    volumeDensity: 0.71, volumeYFalloff: 1.06, volumeMaxDist: 11,
+    volumeSteps: 30, volumeSharpness: 3.3, volumeFocusBias: 1.6,
+    dustCount: 3000, dustSpawnRadius: 16, dustColor: '#ecff3e',
+    dustOpacity: 0.52, dustSize: 3, dustSizeJitter: 1, dustSpeed: 0.08,
+    dustRise: 1.15, dustWander: 0.085, dustForwardSpeed: 22, dustTunnelYSpread: 8,
+    oilColorA: '#ff5cae', oilColorB: '#5cf0ff', oilIntensity: 0.47,
+    oilNoiseScale: 2.19, oilSpeed: 0.18, oilRevealRadius: 0.1,
+    oilTrailLife: 4.5, oilTaperPower: 6,
+    postCA: 0.0055, postLens: -0.66,
+    scrollSpeed: 0.0065, scrollRotateX: -0.005, scrollRotateY: -0.005,
+    scrollRotateZ: 0.15, scrollZoom: 30,
+   
+    tunnelStartCamZ: -56.5, tunnelSpan: 16, outroHoldMs: 2400,
+    tunnelRadius: 2.05, tunnelScatter: 0.31, tunnelSpiralTurns: 0.75,
+    tunnelSpiralPitch: 0.735, tunnelRotSpeed: -0.21, tunnelWiggle: 0.02,
+    tunnelPulseSpeed: 18, tunnelPulseWidth: 4, tunnelPulseBoost: 0.8,
+    tunnelPulsePeriod: 4, tunnelBreathAmp: 0.35, tunnelBreathSpeed: 2.2,
+    tunnelColorFar: '#000000', tunnelGradStart: 0, tunnelGradEnd: 60,
+    surfaceDarkenMax: 1
   };
 
-  group.add(new THREE.Points(geometry, new THREE.ShaderMaterial({
-    uniforms: uniforms,
-    vertexShader: VERT,
-    fragmentShader: FRAG,
-    transparent: true,
-    depthWrite: true
-  })));
+  const PLANE = 60;          // 지형 한 변(월드 단위)
+  const SEG = 340;           // 지형 분할 수 - 파티클도 이 격자를 그대로 쓴다
+  const CAM_BASE = new THREE.Vector3(0, 1.2, 5.5);
+  const CAM_TARGET = new THREE.Vector3(0, 0.1, 0);
+  const INTRO_MS = 3500;
 
-  const target = new THREE.Vector2(99, 99);
-  let rx = 0, ry = 0, tRx = 0, tRy = 0;
-  let scrollT = 0;
-  let camZ = 34;
-
-  window.addEventListener('mousemove', function (e) {
-    const r = canvas.getBoundingClientRect();
-    target.set(
-      ((e.clientX - r.left) / r.width) * 2 - 1,
-      -((e.clientY - r.top) / r.height) * 2 + 1
+  function rgb(hex) {
+    const h = hex.replace('#', '');
+    return new THREE.Vector3(
+      parseInt(h.slice(0, 2), 16) / 255,
+      parseInt(h.slice(2, 4), 16) / 255,
+      parseInt(h.slice(4, 6), 16) / 255
     );
-    tRx = (e.clientY / window.innerHeight - 0.5) * 0.3;
-    tRy = (e.clientX / window.innerWidth - 0.5) * 0.28;
-  });
-
-  window.addEventListener('scroll', function () {
-    scrollT = Math.min(1, window.scrollY / window.innerHeight);
-  }, { passive: true });
-
-  function resize() {
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    uniforms.uAspect.value.set(camera.aspect, 1);
-    // 좁은 화면에서는 천이 화면을 가로지르도록 뒤로 뺀다
-    camZ = w / h < 1 ? 52 : 34;
+  }
+  // 방위각/고도(도) → 방향 벡터
+  function dirFrom(angleDeg, elevDeg) {
+    const a = angleDeg * Math.PI / 180;
+    const s = elevDeg * Math.PI / 180;
+    return new THREE.Vector3(Math.sin(a) * Math.cos(s), Math.sin(s), Math.cos(a) * Math.cos(s));
   }
 
-  window.addEventListener('resize', resize);
-  resize();
+  const FOG_RGB = rgb(C.fogColor);
+  const clearColor = new THREE.Color();
 
-  // 로딩 진행률만큼 천이 짜인다 - 인트로 구멍으로 그 과정이 보인다
-  const reveal = { v: 0 };
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(clearColor.setRGB(FOG_RGB.x, FOG_RGB.y, FOG_RGB.z), 1);
 
-  document.addEventListener('intro:progress', function (e) {
-    uniforms.uEntry.value = e.detail;
+  const scene = new THREE.Scene();
+  const FOV_BASE = window.matchMedia('(max-width: 768px)').matches ? 75 : 52;
+  const camera = new THREE.PerspectiveCamera(FOV_BASE, 1, 0.1, 400);
+  camera.position.copy(CAM_BASE);
+
+  const NOISE_GLSL = [
+    'vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }',
+    'vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }',
+    'vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }',
+    'float snoise(vec2 v) {',
+    '  const vec4 C = vec4(0.211324865405187, 0.366025403784439,',
+    '                      -0.577350269189626, 0.024390243902439);',
+    '  vec2 i = floor(v + dot(v, C.yy));',
+    '  vec2 x0 = v - i + dot(i, C.xx);',
+    '  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);',
+    '  vec4 x12 = x0.xyxy + C.xxzz;',
+    '  x12.xy -= i1;',
+    '  i = mod289(i);',
+    '  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0))',
+    '                 + i.x + vec3(0.0, i1.x, 1.0));',
+    '  vec3 m = max(0.5 - vec3(dot(x0, x0),',
+    '                          dot(x12.xy, x12.xy),',
+    '                          dot(x12.zw, x12.zw)), 0.0);',
+    '  m = m * m;',
+    '  m = m * m;',
+    '  vec3 x = 2.0 * fract(p * C.www) - 1.0;',
+    '  vec3 h = abs(x) - 0.5;',
+    '  vec3 ox = floor(x + 0.5);',
+    '  vec3 a0 = x - ox;',
+    '  m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);',
+    '  vec3 g;',
+    '  g.x  = a0.x  * x0.x  + h.x  * x0.y;',
+    '  g.yz = a0.yz * x12.xz + h.yz * x12.yw;',
+    '  return 130.0 * dot(m, g);',
+    '}'
+  ].join('\n');
+
+  const DISP_UNIFORMS = [
+    'uniform float uNoiseScale;',
+    'uniform float uDisplacement;',
+    'uniform float uTime;',
+    'uniform float uFocusX;',
+    'uniform float uFocusZ;',
+    'uniform float uWaveSpeed;',
+    'uniform float uWaveAmplitude;',
+    'uniform float uWaveLength;',
+    'uniform float uWaveFalloff;',
+    'uniform float uPulseWidth;',
+    'uniform vec3 uClicks[4];',
+    'uniform float uHoverX;',
+    'uniform float uHoverZ;',
+    'uniform float uHoverActive;',
+    'uniform float uHoverRadius;',
+    'uniform float uHoverStrength;',
+    'uniform float uBaseAmplitude;',
+    'uniform float uBaseSpeed;',
+    'uniform float uBaseWavelength;',
+    'uniform float uIntro;',
+    'uniform float uIntroLinear;',
+    'uniform float uCorridorWidth;',
+    'uniform float uCorridorHeight;',
+    'uniform float uCorridorSharpness;'
+  ].join('\n');
+
+  const DISP_FN = [
+    'float computeDisplacement(vec2 posXZ) {',
+    '  float n1 = snoise(vec2(posXZ.x * uNoiseScale, posXZ.y * uNoiseScale));',
+    '  float n2 = snoise(vec2(posXZ.x * uNoiseScale * 2.5,',
+    '                         posXZ.y * uNoiseScale * 2.5)) * 0.45;',
+    '  float disp = (n1 + n2) * uDisplacement;',
+    '  float focusR = length(posXZ - vec2(uFocusX, uFocusZ));',
+    '  float falloffFocus = exp(-focusR * uWaveFalloff);',
+    '  float sigma = max(uPulseWidth, 0.0001);',
+    '  float halfLife = 1.6;',
+    '  float wave = 0.0;',
+    '  for (int i = 0; i < 4; i++) {',
+    '    vec3 click = uClicks[i];',
+    '    if (click.z < 0.0) continue;',
+    '    float age = uTime - click.z;',
+    '    if (age < 0.0 || age > halfLife * 4.0) continue;',
+    '    float r = length(posXZ - click.xy);',
+    '    float frontR = age * uWaveSpeed;',
+    '    float delta = r - frontR;',
+    '    float spatial = exp(-(delta * delta) / (sigma * sigma));',
+    '    float tau = age / halfLife;',
+    '    float temporal = tau * exp(1.0 - tau);',
+    '    float falloffR = exp(-r * uWaveFalloff);',
+    '    wave += sin((r - frontR) * (6.2831853 / max(uWaveLength, 0.0001)))',
+    '      * spatial * temporal * falloffR;',
+    '  }',
+    '  disp += wave * uWaveAmplitude;',
+    // 초점에서 퍼지는 조용한 잔물결
+    '  float baseWl = max(uBaseWavelength, 0.0001);',
+    '  float basePhase = focusR * (6.2831853 / baseWl) - uTime * uBaseSpeed;',
+    '  disp += sin(basePhase) * uBaseAmplitude * falloffFocus;',
+    // 커서를 따라다니는 부드러운 융기
+    '  float dh = length(posXZ - vec2(uHoverX, uHoverZ));',
+    '  float hoverFalloff = exp(-(dh * dh)',
+    '    / (max(uHoverRadius, 0.0001) * max(uHoverRadius, 0.0001)));',
+    '  disp += hoverFalloff * uHoverStrength * uHoverActive;',
+    // 골짜기 벽 - |x| 가 corridorWidth 를 넘어가면 지면이 가파르게 솟는다.
+    // 이 능선 사이를 카메라가 통과한다
+    '  if (uCorridorHeight > 0.0001) {',
+    '    float ax = abs(posXZ.x);',
+    '    float d = max(ax - uCorridorWidth, 0.0);',
+    '    disp += pow(d, max(uCorridorSharpness, 0.001)) * uCorridorHeight;',
+    '  }',
+    '  return disp;',
+    '}'
+  ].join('\n');
+
+  const HEAD = NOISE_GLSL + '\n' + DISP_UNIFORMS + '\n' + DISP_FN;
+
+  // 지형·파티클·먼지가 함께 보는 유니폼
+  const shared = {
+    uNoiseScale: { value: C.noiseScale },
+    uDisplacement: { value: C.displacement },
+    uTime: { value: 0 },
+    uFocusX: { value: C.focusX },
+    uFocusZ: { value: C.focusZ },
+    uWaveSpeed: { value: C.waveSpeed },
+    uWaveAmplitude: { value: C.waveAmplitude },
+    uWaveLength: { value: C.waveLength },
+    uWaveFalloff: { value: C.waveFalloff },
+    uPulseWidth: { value: C.pulseWidth },
+    uClicks: { value: [0, 1, 2, 3].map(function () { return new THREE.Vector3(0, 0, -1); }) },
+    uHoverX: { value: 0 },
+    uHoverZ: { value: 0 },
+    uHoverActive: { value: 0 },
+    uHoverRadius: { value: C.hoverRadius },
+    uHoverStrength: { value: C.hoverStrength },
+    uBaseAmplitude: { value: C.baseAmplitude },
+    uBaseSpeed: { value: C.baseSpeed },
+    uBaseWavelength: { value: C.baseWavelength },
+    uIntro: { value: 0 },
+    uIntroLinear: { value: 0 },
+    uCorridorWidth: { value: C.corridorWidth },
+    uCorridorHeight: { value: C.corridorHeight },
+    uCorridorSharpness: { value: C.corridorSharpness },
+    uFogInner: { value: C.fogInner },
+    uFogOuter: { value: C.fogOuter },
+    uFogColor: { value: rgb(C.fogColor) },
+    uCameraZ: { value: CAM_BASE.z },
+    uTunnelProgress: { value: 0 },
+    uSurfaceDarken: { value: 0 }
+  };
+
+  // ── 지형 ────────────────────────────────────────────
+  const surfGeo = new THREE.PlaneGeometry(PLANE, PLANE, SEG, SEG);
+  surfGeo.rotateX(-Math.PI / 2);
+
+  const SURF_VERT = HEAD + '\n' + [
+    'varying float vDisp;',
+    'varying vec3 vWorldPos;',
+    'void main() {',
+
+    '  vec4 worldFlat = modelMatrix * vec4(position.x, 0.0, position.z, 1.0);',
+    '  float disp = computeDisplacement(worldFlat.xz);',
+    '  disp *= smoothstep(0.0, 0.5, uIntro);',
+    '  vec3 pos = position;',
+    '  pos.y += disp;',
+    '  vDisp = disp;',
+    '  vec4 worldPos = modelMatrix * vec4(pos, 1.0);',
+    '  vWorldPos = worldPos.xyz;',
+    '  gl_Position = projectionMatrix * viewMatrix * worldPos;',
+    '}'
+  ].join('\n');
+
+  const SURF_FRAG = NOISE_GLSL + '\n' + [
+    'uniform vec3 uBaseColor;',
+    'uniform vec3 uPeakColor;',
+    'uniform vec3 uFogColor;',
+    'uniform float uDisplacement;',
+    'uniform float uSurfaceDarken;',
+    'uniform float uFocusX;',
+    'uniform float uFocusZ;',
+    'uniform float uFogInner;',
+    'uniform float uFogOuter;',
+    'uniform vec3 uLightDir;',
+    'uniform vec3 uLightColor;',
+    'uniform float uBumpiness;',
+    'uniform float uSpecularStrength;',
+    'uniform float uSpecularSharpness;',
+    'uniform float uBumpNoiseScale;',
+    'uniform float uBumpNoiseStrength;',
+    'uniform float uTime;',
+    'uniform vec3 uCausticsColor;',
+    'uniform float uCausticsIntensity;',
+    'uniform float uCausticsScale;',
+    'uniform float uCausticsSpeed;',
+    'uniform float uCausticsContrast;',
+    'uniform float uCausticsDistort;',
+    'uniform float uIntro;',
+    'uniform float uVolumeDensity;',
+    'uniform float uVolumeYFalloff;',
+    'uniform float uVolumeMaxDist;',
+    'uniform float uVolumeSteps;',
+    'uniform float uVolumeSharpness;',
+    'uniform float uVolumeFocusBias;',
+    'uniform vec4 uTrail[16];',
+    'uniform vec3 uOilColorA;',
+    'uniform vec3 uOilColorB;',
+    'uniform float uOilIntensity;',
+    'uniform float uOilRevealRadius;',
+    'uniform float uOilTaperPower;',
+    'uniform float uOilMaxArc;',
+    'uniform float uOilTrailLife;',
+    'uniform float uOilNoiseScale;',
+    'uniform float uOilSpeed;',
+    'varying float vDisp;',
+    'varying vec3 vWorldPos;',
+
+    
+    'float causticRidge(vec2 xz, float ct, float distort) {',
+    '  vec2 cp = xz * uCausticsScale + distort;',
+    '  float c1 = snoise(cp + vec2(ct * 0.6, ct * 0.4));',
+    '  float c2 = snoise(cp * 1.37 - vec2(ct * 0.3, -ct * 0.5));',
+    '  float ridge = (1.0 - abs(c1)) * (1.0 - abs(c2));',
+    '  return pow(clamp(ridge, 0.0, 1.0), max(uCausticsContrast, 0.001));',
+    '}',
+
+    'void main() {',
+    '  float h = clamp(vDisp / max(uDisplacement, 0.0001) * 0.5 + 0.5, 0.0, 1.0);',
+    '  float introMix = smoothstep(0.0, 0.7, uIntro);',
+    '  vec3 col = mix(uBaseColor, uPeakColor, mix(1.0, h, introMix));',
+
+    '  vec3 dx = dFdx(vWorldPos);',
+    '  vec3 dy = dFdy(vWorldPos);',
+    '  vec3 N = normalize(cross(dy, dx));',
+    '  N.xz *= uBumpiness;',
+    '  N = normalize(N);',
+
+    '  if (uBumpNoiseStrength > 0.0001) {',
+    '    vec2 bp = vWorldPos.xz * uBumpNoiseScale;',
+    '    float eps = 0.6;',
+    '    float nC = snoise(bp);',
+    '    float nX = snoise(bp + vec2(eps, 0.0));',
+    '    float nZ = snoise(bp + vec2(0.0, eps));',
+    '    N.xz -= (vec2(nX - nC, nZ - nC) / eps) * uBumpNoiseStrength;',
+    '    N = normalize(N);',
+    '  }',
+
+    '  vec3 L = normalize(uLightDir);',
+    '  float ndl = clamp(dot(N, L), 0.0, 1.0);',
+    '  vec3 lit = col * (0.45 + 0.55 * ndl * uLightColor);',
+    '  vec3 V = normalize(cameraPosition - vWorldPos);',
+    '  vec3 R = reflect(-L, N);',
+    '  float spec = pow(max(dot(V, R), 0.0), max(uSpecularSharpness, 1.0));',
+    '  lit += uLightColor * spec * uSpecularStrength;',
+
+    '  float ct = uTime * uCausticsSpeed;',
+    '  if (uCausticsIntensity > 0.0001) {',
+    '    float ridge = causticRidge(vWorldPos.xz, ct, vDisp * uCausticsDistort);',
+    '    lit += uCausticsColor * ridge * uCausticsIntensity * smoothstep(0.3, 0.85, uIntro);',
+    '  }',
+
+    '  vec2 diff = vWorldPos.xz - vec2(uFocusX, uFocusZ);',
+    '  float dist = length(diff);',
+    '  float fogFactor = smoothstep(uFogInner, uFogOuter, dist);',
+
+    // 볼륨 코스틱 - 카메라에서 이 지점까지 훑으며 공중의 빛줄기를 쌓는다
+    '  float volFocus = 1.0 - fogFactor;',
+    '  if (uVolumeDensity > 0.0001 && volFocus > 0.01) {',
+    '    vec3 toSurf = vWorldPos - cameraPosition;',
+    '    float rayLen = length(toSurf);',
+    '    vec3 rayDir = toSurf / max(rayLen, 0.0001);',
+    '    float marchDist = min(rayLen, uVolumeMaxDist);',
+    '    int volSteps = int(clamp(uVolumeSteps, 1.0, 32.0));',
+    '    float volStepDist = marchDist / float(volSteps);',
+    '    float volJitter = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5);',
+    '    float vt = volJitter * volStepDist;',
+    '    vec3 volAcc = vec3(0.0);',
+    '    for (int j = 0; j < 32; j++) {',
+    '      if (j >= volSteps) break;',
+    '      vec3 vp = cameraPosition + rayDir * vt;',
+    '      if (vp.y > 0.0) {',
+    '        float vridge = pow(causticRidge(vp.xz, ct, 0.0), max(uVolumeSharpness, 0.001));',
+    '        float vyAtten = exp(-vp.y * uVolumeYFalloff);',
+    '        float sampleR = length(vp.xz - vec2(uFocusX, uFocusZ));',
+    '        float sampleFocus = 1.0 - smoothstep(uFogInner * 0.6, uFogOuter, sampleR);',
+    '        volAcc += vridge * vyAtten * sampleFocus;',
+    '      }',
+    '      vt += volStepDist;',
+    '    }',
+    '    float pixelFocus = pow(volFocus, max(uVolumeFocusBias, 0.001));',
+    '    lit += volAcc * uCausticsColor * uVolumeDensity * volStepDist',
+    '      * pixelFocus * smoothstep(0.45, 1.0, uIntro);',
+    '  }',
+
+    '  float trail = 0.0;',
+    '  for (int i = 0; i < 16; i++) {',
+    '    vec4 slot = uTrail[i];',
+    '    if (slot.w < 0.0) continue;',
+    '    float taper = pow(max(1.0 - slot.z / uOilMaxArc, 0.0), uOilTaperPower);',
+    '    float life = max(1.0 - slot.w / uOilTrailLife, 0.0);',
+    '    float d = length(vWorldPos.xz - slot.xy);',
+    '    trail += (1.0 - smoothstep(0.0, uOilRevealRadius * (0.35 + taper), d)) * taper * life;',
+    '  }',
+    '  trail = clamp(trail, 0.0, 1.0);',
+    '  float irid = snoise(vWorldPos.xz * uOilNoiseScale + uTime * uOilSpeed) * 0.5 + 0.5;',
+
+    '  vec3 outCol = mix(lit, uFogColor, fogFactor);',
+    '  float darken = clamp(uSurfaceDarken, 0.0, 1.0);',
+    '  outCol = mix(outCol, vec3(0.0), darken);',
+    '  float alpha = 1.0 - darken;',
+    '  float oilGate = (1.0 - darken) * (1.0 - fogFactor);',
+    '  vec3 oil = mix(uOilColorA, uOilColorB, irid) * trail * uOilIntensity * oilGate;',
+    '  vec3 invSurf = 1.0 - clamp(outCol, 0.0, 1.0);',
+    '  vec3 invOil = 1.0 - clamp(oil, 0.0, 1.0);',
+    '  outCol = 1.0 - invSurf * invOil;',
+    '  alpha = max(alpha, clamp(trail * uOilIntensity * oilGate, 0.0, 1.0));',
+    '  if (alpha <= 0.001) discard;',
+    '  gl_FragColor = vec4(outCol, alpha);',
+    '}'
+  ].join('\n');
+
+  const surfaceUniforms = Object.assign({
+    uBaseColor: { value: rgb(C.baseColor) },
+    uPeakColor: { value: rgb(C.peakColor) },
+    uLightDir: { value: dirFrom(C.lightAngle, C.lightElevation) },
+    uLightColor: { value: rgb(C.lightColor) },
+    uBumpiness: { value: C.bumpiness },
+    uSpecularStrength: { value: C.specularStrength },
+    uSpecularSharpness: { value: C.specularSharpness },
+    uBumpNoiseScale: { value: C.bumpNoiseScale },
+    uBumpNoiseStrength: { value: C.bumpNoiseStrength },
+    uCausticsColor: { value: rgb(C.causticsColor) },
+    uCausticsIntensity: { value: C.causticsIntensity },
+    uCausticsScale: { value: C.causticsScale },
+    uCausticsSpeed: { value: C.causticsSpeed },
+    uCausticsContrast: { value: C.causticsContrast },
+    uCausticsDistort: { value: C.causticsDistort },
+    uVolumeDensity: { value: C.volumeDensity },
+    uVolumeYFalloff: { value: C.volumeYFalloff },
+    uVolumeMaxDist: { value: C.volumeMaxDist },
+    uVolumeSteps: { value: C.volumeSteps },
+    uVolumeSharpness: { value: C.volumeSharpness },
+    uVolumeFocusBias: { value: C.volumeFocusBias },
+    uTrail: { value: Array.from({ length: 16 }, function () { return new THREE.Vector4(0, 0, 0, -1); }) },
+    uOilColorA: { value: rgb(C.oilColorA) },
+    uOilColorB: { value: rgb(C.oilColorB) },
+    uOilIntensity: { value: C.oilIntensity },
+    uOilRevealRadius: { value: C.oilRevealRadius },
+    uOilTaperPower: { value: C.oilTaperPower },
+    uOilMaxArc: { value: 2.6 },
+    uOilTrailLife: { value: C.oilTrailLife },
+    uOilNoiseScale: { value: C.oilNoiseScale },
+    uOilSpeed: { value: C.oilSpeed }
+  }, shared);
+
+  const surface = new THREE.Mesh(surfGeo, new THREE.ShaderMaterial({
+    extensions: { derivatives: true },
+    vertexShader: SURF_VERT,
+    fragmentShader: SURF_FRAG,
+    uniforms: surfaceUniforms,
+    side: THREE.DoubleSide,
+    transparent: true,
+    depthWrite: false
+  }));
+  scene.add(surface);
+
+  // ── 구슬 파티클 - 지형과 같은 격자를 그대로 쓴다 ──────
+  const posAttr = surfGeo.getAttribute('position');
+  const pCount = posAttr.count;
+  const pRandom = new Float32Array(pCount);
+  for (let i = 0; i < pCount; i++) pRandom[i] = Math.random();
+
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', posAttr);
+  pGeo.setAttribute('aRandom', new THREE.BufferAttribute(pRandom, 1));
+  pGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+
+  const P_VERT = HEAD + '\n' + [
+    'uniform float uParticleLift;',
+    'uniform float uParticleSize;',
+    'uniform float uParticleSizeJitter;',
+    'uniform float uParticleXZJitter;',
+    'uniform float uParticleYJitter;',
+    'uniform float uCameraZ;',
+    'uniform float uParticleZRange;',
+    'uniform float uTunnelProgress;',
+    'uniform float uTunnelRadius;',
+    'uniform float uTunnelCenterX;',
+    'uniform float uTunnelCenterY;',
+    'uniform float uTunnelScatter;',
+    'uniform float uTunnelSpiralTurns;',
+    'uniform float uTunnelSpiralPitch;',
+    'uniform float uTunnelRotSpeed;',
+    'uniform float uTunnelWiggle;',
+    'uniform float uPWaveBoost;',
+    'uniform float uPWaveSpeed;',
+    'uniform float uPWavePeriod;',
+    'uniform float uPWaveWidth;',
+    'uniform float uTunnelPulseSpeed;',
+    'uniform float uTunnelPulseWidth;',
+    'uniform float uTunnelPulseBoost;',
+    'uniform float uTunnelPulsePeriod;',
+    'uniform float uTunnelBreathAmp;',
+    'uniform float uTunnelBreathSpeed;',
+    'uniform float uPassIndex;',
+    'attribute float aRandom;',
+    'varying float vAlphaScale;',
+    'varying float vFocusR;',
+    'varying float vCamForward;',
+    'varying float vTunnelMix;',
+    'void main() {',
+    '  vec3 localPos = position;',
+    // 두 번째 패스는 난수를 어긋나게 해서 첫 패스와 겹치지 않게 흩어진다
+    '  float effRandom = fract(aRandom + uPassIndex * 0.3759);',
+    '  float r1 = fract(effRandom * 13.31);',
+    '  float r2 = fract(effRandom * 71.17);',
+    '  localPos.xz += (vec2(r1, r2) - 0.5) * uParticleXZJitter;',
+    // 카메라를 기준으로 z 를 접어 넣어 파티클이 떨어져 나가지 않는다
+    '  float worldX = localPos.x;',
+    '  float worldZ = localPos.z;',
+    '  float zRange = max(uParticleZRange, 1.0);',
+    '  float relZ = worldZ - uCameraZ;',
+    '  relZ = mod(relZ + zRange * 0.5, zRange) - zRange * 0.5;',
+    '  worldZ = uCameraZ + relZ;',
+    '  float disp = computeDisplacement(vec2(worldX, worldZ));',
+    '  float worldY = disp + uParticleLift',
+    '    + (fract(effRandom * 91.7) - 0.5) * uParticleYJitter;',
+    '  vec3 worldXYZ = vec3(worldX, worldY, worldZ);',
+    // 나선 원기둥. z 가 진행할수록 각도가 돌아가 고리가 아니라 회오리로 읽힌다
+    '  if (uTunnelProgress > 0.0001) {',
+    '    float scatter = (fract(effRandom * 41.7) - 0.5) * uTunnelScatter;',
+    '    float tRad = uTunnelRadius + scatter;',
+    '    float baseAngle = effRandom * 6.2831853;',
+    '    float zAngle = position.z * uTunnelSpiralPitch;',
+    '    float turnAngle = baseAngle * uTunnelSpiralTurns + zAngle',
+    '      + uTime * uTunnelRotSpeed;',
+    '    vec3 wiggle = vec3(',
+    '      sin(uTime * 0.73 + effRandom * 17.0),',
+    '      sin(uTime * 0.97 + effRandom * 31.0),',
+    '      sin(uTime * 1.11 + effRandom * 23.0)',
+    '    ) * uTunnelWiggle * uTunnelProgress;',
+    '    vec3 tunnelXYZ = vec3(',
+    '      uTunnelCenterX + cos(turnAngle) * tRad,',
+    '      uTunnelCenterY + sin(turnAngle) * tRad,',
+    '      worldZ',
+    '    ) + wiggle;',
+    '    worldXYZ = mix(worldXYZ, tunnelXYZ, uTunnelProgress);',
+    '  }',
+    '  vec4 mvPos = viewMatrix * vec4(worldXYZ, 1.0);',
+    '  gl_Position = projectionMatrix * mvPos;',
+    '  vCamForward = cameraPosition.z - worldXYZ.z;',
+    '  vTunnelMix = clamp(uTunnelProgress, 0.0, 1.0);',
+    '  float sizeRand = mix(1.0 - uParticleSizeJitter, 1.0 + uParticleSizeJitter, effRandom);',
+    '  float depthAtten = clamp(8.0 / max(-mvPos.z, 0.5), 0.4, 1.6);',
+    // 회오리에서는 원근 감쇠를 눕혀 기둥이 고르게 보이도록 한다
+    '  depthAtten = mix(depthAtten, 1.0, uTunnelProgress);',
+    // 지면 파동 - 초점에서 태어난 고리가 주기마다 퍼져 나간다
+    '  float pwR = length(vec2(worldX, worldZ) - vec2(uFocusX, uFocusZ));',
+    '  float period = max(uPWavePeriod, 0.0001);',
+    '  float tau = mod(uTime, period) / period;',
+    '  float easedTau = 1.0 - pow(1.0 - tau, 3.0);',
+    '  float pwFront = easedTau * period * uPWaveSpeed;',
+    '  float pwBell = smoothstep(max(uPWaveWidth, 0.0001), 0.0, abs(pwR - pwFront));',
+    '  float edge = smoothstep(0.0, 0.04, tau) * (1.0 - smoothstep(0.96, 1.0, tau));',
+    '  float surfacePulse = pwBell * edge * uPWaveBoost * (1.0 - uTunnelProgress);',
+    // 회오리 파동 - 카메라에서 앞으로 달려나가는 띠
+    '  float tPeriod = max(uTunnelPulsePeriod, 0.0001);',
+    '  float tTau = mod(uTime, tPeriod) / tPeriod;',
+    '  float bandZ = uCameraZ - tTau * tPeriod * uTunnelPulseSpeed;',
+    '  float bandBell = smoothstep(max(uTunnelPulseWidth, 0.0001), 0.0, abs(worldZ - bandZ));',
+    '  float tunnelPulse = bandBell * uTunnelPulseBoost * uTunnelProgress;',
+    '  float breath = sin(uTime * uTunnelBreathSpeed + effRandom * 6.2831853);',
+    '  float breathMul = 1.0 + breath * uTunnelBreathAmp * uTunnelProgress;',
+    '  gl_PointSize = uParticleSize * sizeRand * depthAtten',
+    '    * (1.0 + surfacePulse + tunnelPulse) * breathMul;',
+    '  vAlphaScale = clamp(1.0 - (-mvPos.z) * 0.05, 0.2, 1.0);',
+    '  vAlphaScale *= 1.0 + (tunnelPulse + breath * uTunnelBreathAmp) * 0.4 * uTunnelProgress;',
+    // 인트로 - 카메라에서 바깥으로 번지는 파도가 파티클을 차례로 켠다
+    '  float distFromCam = length(vec2(worldX, worldZ - uCameraZ));',
+    '  float waveR = uIntroLinear * 50.0;',
+    '  vAlphaScale *= 1.0 - smoothstep(waveR, waveR + 4.0, distFromCam);',
+    '  vFocusR = length(vec2(worldX, worldZ) - vec2(uFocusX, uFocusZ));',
+    '}'
+  ].join('\n');
+
+  const P_FRAG = [
+    'uniform vec3 uParticleColor;',
+    'uniform vec3 uParticleColorFar;',
+    'uniform float uParticleGradStart;',
+    'uniform float uParticleGradEnd;',
+    'uniform float uParticleOpacity;',
+    'uniform float uFogInner;',
+    'uniform float uFogOuter;',
+    'uniform vec3 uPLightDir;',
+    'uniform float uPAmbient;',
+    'uniform float uPDiffuse;',
+    'uniform float uPSpec;',
+    'uniform float uPSpecPower;',
+    'varying float vAlphaScale;',
+    'varying float vFocusR;',
+    'varying float vCamForward;',
+    'varying float vTunnelMix;',
+    'void main() {',
+    // Safari 는 gl_PointCoord 가 mediump 라 반구 법선이 뭉개진다
+    '  highp vec2 pc = gl_PointCoord;',
+    '  vec2 c = pc - vec2(0.5);',
+    '  float d = length(c);',
+    '  if (d > 0.5) discard;',
+    '  float fogFactor = smoothstep(uFogInner, uFogOuter, vFocusR);',
+    '  float alpha = (1.0 - smoothstep(0.35, 0.5, d))',
+    '    * uParticleOpacity * vAlphaScale * (1.0 - fogFactor);',
+    '  vec2 n2 = vec2(c.x, -c.y) * 2.0;',
+    '  float nz2 = clamp(1.0 - dot(n2, n2), 0.0, 1.0);',
+    '  vec3 N = vec3(n2, sqrt(nz2));',
+    '  vec3 L = normalize(uPLightDir);',
+    '  float diff = max(dot(N, L), 0.0);',
+    '  vec3 V = vec3(0.0, 0.0, 1.0);',
+    '  vec3 H = normalize(L + V);',
+    '  float spec = pow(max(dot(N, H), 0.0), max(uPSpecPower, 0.001));',
+    '  float shade = uPAmbient + uPDiffuse * diff;',
+    // 회오리에서는 멀어질수록 색이 빠져 터널 안쪽이 깊어 보인다
+    '  float gradT = clamp((vCamForward - uParticleGradStart)',
+    '    / max(uParticleGradEnd - uParticleGradStart, 0.0001), 0.0, 1.0);',
+    '  vec3 baseCol = mix(uParticleColor, uParticleColorFar, gradT * vTunnelMix);',
+    '  gl_FragColor = vec4(baseCol * shade + vec3(uPSpec * spec), alpha);',
+    '}'
+  ].join('\n');
+
+  function particleUniformSet(passIndex) {
+    return Object.assign({
+      uParticleLift: { value: C.particleLift },
+      uParticleSize: { value: C.particleSize },
+      uParticleSizeJitter: { value: C.particleSizeJitter },
+      uParticleXZJitter: { value: C.particleXZJitter },
+      uParticleYJitter: { value: C.particleYJitter },
+      uParticleColor: { value: rgb(C.particleColor) },
+      uParticleColorFar: { value: rgb(C.tunnelColorFar) },
+      uParticleGradStart: { value: C.tunnelGradStart },
+      uParticleGradEnd: { value: C.tunnelGradEnd },
+      uParticleOpacity: { value: C.particleOpacity },
+      uPLightDir: { value: C.pLightDir.clone() },
+      uPAmbient: { value: C.pAmbient },
+      uPDiffuse: { value: C.pDiffuse },
+      uPSpec: { value: C.pSpec },
+      uPSpecPower: { value: C.pSpecPower },
+      uPWaveBoost: { value: C.pWaveBoost },
+      uPWaveSpeed: { value: C.pWaveSpeed },
+      uPWavePeriod: { value: C.pWavePeriod },
+      uPWaveWidth: { value: C.pWaveWidth },
+      uParticleZRange: { value: PLANE },
+      uTunnelRadius: { value: C.tunnelRadius },
+      uTunnelCenterX: { value: 0 },
+      uTunnelCenterY: { value: 0 },
+      uTunnelScatter: { value: C.tunnelScatter },
+      uTunnelSpiralTurns: { value: C.tunnelSpiralTurns },
+      uTunnelSpiralPitch: { value: C.tunnelSpiralPitch },
+      uTunnelRotSpeed: { value: C.tunnelRotSpeed },
+      uTunnelWiggle: { value: C.tunnelWiggle },
+      uTunnelPulseSpeed: { value: C.tunnelPulseSpeed },
+      uTunnelPulseWidth: { value: C.tunnelPulseWidth },
+      uTunnelPulseBoost: { value: C.tunnelPulseBoost },
+      uTunnelPulsePeriod: { value: C.tunnelPulsePeriod },
+      uTunnelBreathAmp: { value: C.tunnelBreathAmp },
+      uTunnelBreathSpeed: { value: C.tunnelBreathSpeed },
+      uPassIndex: { value: passIndex }
+    }, shared);
+  }
+
+  // 회오리에서는 파티클을 한 겹 더 그려 기둥이 조밀해진다
+  const particlePasses = [0, 1].map(function (passIndex) {
+    const uniforms = particleUniformSet(passIndex);
+    const points = new THREE.Points(pGeo, new THREE.ShaderMaterial({
+      vertexShader: P_VERT,
+      fragmentShader: P_FRAG,
+      uniforms: uniforms,
+      transparent: true,
+      depthWrite: false
+    }));
+    points.frustumCulled = false;
+    if (passIndex > 0) points.visible = false;
+    scene.add(points);
+    return { points: points, uniforms: uniforms };
   });
 
+  // ── 먼지 ────────────────────────────────────────────
+  const dGeo = new THREE.BufferGeometry();
+  const dPos = new Float32Array(C.dustCount * 3);
+  const dSeed = new Float32Array(C.dustCount);
+  const dPhase = new Float32Array(C.dustCount);
+  for (let i = 0; i < C.dustCount; i++) {
+    dPos[i * 3] = (Math.random() - 0.5) * C.dustSpawnRadius * 2;
+    dPos[i * 3 + 1] = 0;
+    dPos[i * 3 + 2] = (Math.random() - 0.5) * 32;
+    dSeed[i] = Math.random();
+    dPhase[i] = Math.random();
+  }
+  dGeo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
+  dGeo.setAttribute('aSeed', new THREE.BufferAttribute(dSeed, 1));
+  dGeo.setAttribute('aPhase', new THREE.BufferAttribute(dPhase, 1));
+  dGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e4);
+
+  const D_VERT = HEAD + '\n' + [
+    'uniform float uDustSpeed;',
+    'uniform float uDustRise;',
+    'uniform float uDustSize;',
+    'uniform float uDustSizeJitter;',
+    'uniform float uDustWander;',
+    'uniform float uCameraZ;',
+    'uniform float uDustZRange;',
+    'uniform float uTunnelProgress;',
+    'uniform float uDustForwardSpeed;',
+    'uniform float uTunnelCenterY;',
+    'uniform float uDustTunnelYSpread;',
+    'attribute float aSeed;',
+    'attribute float aPhase;',
+    'varying float vAge;',
+    'varying float vFocusR;',
+    'varying float vIntroMul;',
+    'void main() {',
+    '  float age = fract(uTime * uDustSpeed + aPhase);',
+    '  float wx = sin(uTime * 0.7 + aSeed * 31.7) * uDustWander;',
+    '  float wz = cos(uTime * 0.5 + aSeed * 17.3) * uDustWander;',
+    '  float worldX = position.x + wx;',
+    '  float worldZ = position.z + wz;',
+    '  float zRange = max(uDustZRange, 1.0);',
+    '  float relZ = worldZ - uCameraZ;',
+    '  relZ = mod(relZ + zRange * 0.5, zRange) - zRange * 0.5;',
+    '  worldZ = uCameraZ + relZ;',
+    '  float surfY = computeDisplacement(vec2(worldX, worldZ));',
+    '  float surfaceY = surfY + age * uDustRise;',
+    // 회오리에서는 위로 떠오르는 대신 기둥 안을 채우고 앞으로 흘러간다
+    '  float ySpread = (fract(aSeed * 13.71) - 0.5) * uDustTunnelYSpread;',
+    '  float worldY = mix(surfaceY, uTunnelCenterY + ySpread, uTunnelProgress);',
+    '  worldZ = worldZ - age * uDustForwardSpeed * uTunnelProgress;',
+    '  float relZ2 = worldZ - uCameraZ;',
+    '  relZ2 = mod(relZ2 + zRange * 0.5, zRange) - zRange * 0.5;',
+    '  worldZ = uCameraZ + relZ2;',
+    '  vec4 mvPos = viewMatrix * vec4(worldX, worldY, worldZ, 1.0);',
+    '  gl_Position = projectionMatrix * mvPos;',
+    '  float sizeRand = mix(1.0 - uDustSizeJitter, 1.0 + uDustSizeJitter, fract(aSeed * 0.71));',
+    '  float depthAtten = clamp(8.0 / max(-mvPos.z, 0.5), 0.4, 1.6);',
+    '  gl_PointSize = uDustSize * sizeRand * depthAtten;',
+    '  vAge = age;',
+    '  vFocusR = length(vec2(worldX, worldZ) - vec2(uFocusX, uFocusZ));',
+    '  float distFromCam = length(vec2(worldX, worldZ - uCameraZ));',
+    '  float waveR = uIntroLinear * 50.0;',
+    '  vIntroMul = 1.0 - smoothstep(waveR, waveR + 4.0, distFromCam);',
+    '}'
+  ].join('\n');
+
+  const D_FRAG = [
+    'uniform vec3 uDustColor;',
+    'uniform float uDustOpacity;',
+    'uniform float uFogInner;',
+    'uniform float uFogOuter;',
+    'varying float vAge;',
+    'varying float vFocusR;',
+    'varying float vIntroMul;',
+    'void main() {',
+    '  vec2 c = gl_PointCoord - vec2(0.5);',
+    '  float d = length(c);',
+    '  if (d > 0.5) discard;',
+    // 수명 곡선을 종 모양으로 잡아 주기 경계에서 튀지 않고 피고 진다
+    '  float a = (1.0 - smoothstep(0.35, 0.5, d)) * sin(vAge * 3.14159)',
+    '    * uDustOpacity * (1.0 - smoothstep(uFogInner, uFogOuter, vFocusR)) * vIntroMul;',
+    '  gl_FragColor = vec4(uDustColor, a);',
+    '}'
+  ].join('\n');
+
+  const dustUniforms = Object.assign({
+    uDustSpeed: { value: C.dustSpeed },
+    uDustRise: { value: C.dustRise },
+    uDustSize: { value: C.dustSize },
+    uDustSizeJitter: { value: C.dustSizeJitter },
+    uDustWander: { value: C.dustWander },
+    uDustZRange: { value: 32 },
+    uDustForwardSpeed: { value: C.dustForwardSpeed },
+    uDustTunnelYSpread: { value: C.dustTunnelYSpread },
+    uTunnelCenterY: { value: 0 },
+    uDustColor: { value: rgb(C.dustColor) },
+    uDustOpacity: { value: C.dustOpacity }
+  }, shared);
+
+  const dust = new THREE.Points(dGeo, new THREE.ShaderMaterial({
+    vertexShader: D_VERT,
+    fragmentShader: D_FRAG,
+    uniforms: dustUniforms,
+    transparent: true,
+    depthWrite: false
+  }));
+  dust.frustumCulled = false;
+  scene.add(dust);
+
+  // ── 구간 스테이션 - 파티클이 숫자를 만들고 그 아래 문구가 올라온다 ──
+  const ST = {
+    firstZ: -5.5, spacing: 6.5, triggerOffset: 1,
+    formInMs: 490, formOutMs: 1440,
+    count: 6000, pixelSize: 220, worldHeight: 1.4,
+    colorA: '#ecff3e', colorB: '#f4f5f0',
+    yOffset: 0.75, particleSize: 1.7,
+    scatterRadius: 20, scatterHeight: 4.3,
+    formJitter: 0.019, idleWiggle: 0.026,
+    hoverRadius: 0.09, hoverRepel: 0.05, hoverScale: 1.8,
+    labelAppear: 5.6, labelDisappear: -0.9
+  };
+
+  function textToPoints(text, count) {
+    const family = getComputedStyle(document.body).fontFamily || 'sans-serif';
+    const px = ST.pixelSize;
+    const w = Math.ceil(text.length * px * 0.7 + px * 0.4);
+    const h = Math.ceil(px * 1.3);
+    const cv = document.createElement('canvas');
+    cv.width = w;
+    cv.height = h;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 ' + px + 'px ' + family;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w / 2, h / 2);
+
+    const data = ctx.getImageData(0, 0, w, h).data;
+    const out = new Float32Array(count * 2);
+    const scale = ST.worldHeight / px;
+    let got = 0;
+    let tries = 0;
+    while (got < count && tries < count * 200) {
+      tries++;
+      const x = (Math.random() * w) | 0;
+      const y = (Math.random() * h) | 0;
+      if (data[(y * w + x) * 4 + 3] <= 80) continue;
+      out[got * 2] = (x - w / 2) * scale;
+      out[got * 2 + 1] = -(y - h / 2) * scale;
+      got++;
+    }
+    return out;
+  }
+
+  const ST_VERT = [
+    'attribute vec2 aBase;',
+    'attribute float aSeed;',
+    'uniform vec3 uStationCenter;',
+    'uniform float uFormProgress;',
+    'uniform float uVisProgress;',
+    'uniform float uYOffset;',
+    'uniform float uScatterRadius;',
+    'uniform float uScatterHeight;',
+    'uniform float uFormJitter;',
+    'uniform vec2 uCursorNDC;',
+    'uniform float uHoverActive;',
+    'uniform float uHoverRadius;',
+    'uniform float uHoverRepel;',
+    'uniform float uHoverScale;',
+    'uniform float uParticleSize;',
+    'uniform float uTime;',
+    'uniform float uIdleWiggle;',
+    'varying float vForm;',
+    'varying float vVis;',
+    'varying float vPAlpha;',
+    'varying float vHoverFall;',
+    'void main() {',
+    '  vec3 jitter = vec3(',
+    '    (fract(aSeed * 41.7) - 0.5),',
+    '    (fract(aSeed * 79.3) - 0.5),',
+    '    (fract(aSeed * 17.1) - 0.5)',
+    '  ) * uFormJitter;',
+    '  vec3 formed = uStationCenter + vec3(aBase.x, aBase.y + uYOffset, 0.0) + jitter;',
+    '  float rx = (fract(aSeed * 11.3) - 0.5) * 2.0;',
+    '  float rz = (fract(aSeed * 71.1) - 0.5) * 2.0;',
+    '  vec3 scattered = uStationCenter + vec3(',
+    '    rx * uScatterRadius,',
+    '    -uScatterHeight - fract(aSeed * 31.9) * 0.6,',
+    '    rz * uScatterRadius',
+    '  );',
+    '  float perOffset = fract(aSeed * 53.7);',
+    '  float stagger = 0.35;',
+    '  float pEase = clamp((uFormProgress - perOffset * stagger)',
+    '    / max(1.0 - stagger, 0.0001), 0.0, 1.0);',
+    '  pEase = 1.0 - pow(1.0 - pEase, 4.0);',
+    '  float xzEase = smoothstep(0.0, 1.0, pEase);',
+    '  float yEase = smoothstep(0.0, 1.0, pEase);',
+    '  vec3 worldPos;',
+    '  worldPos.x = mix(scattered.x, formed.x, xzEase);',
+    '  worldPos.y = mix(scattered.y, formed.y, yEase);',
+    '  worldPos.z = mix(scattered.z, formed.z, xzEase);',
+    // 자리를 잡은 뒤에도 미세하게 떨려서 붙박이 그림으로 안 보인다
+    '  float wiggleAmt = uIdleWiggle * pEase;',
+    '  worldPos += vec3(',
+    '    sin(uTime * 1.7 + aSeed * 13.0),',
+    '    cos(uTime * 1.3 + aSeed * 7.0),',
+    '    sin(uTime * 2.1 + aSeed * 23.0)',
+    '  ) * wiggleAmt;',
+    '  vPAlpha = smoothstep(0.35, 1.0, pEase);',
+    '  vec4 mvPos = viewMatrix * vec4(worldPos, 1.0);',
+    '  vec4 clip = projectionMatrix * mvPos;',
+    // 커서 반응은 화면 좌표에서 계산한 뒤 마지막에 클립 좌표로 더한다
+    '  float hoverFall = 0.0;',
+    '  vec2 pushNDC = vec2(0.0);',
+    '  if (uHoverActive > 0.0) {',
+    '    vec2 partNDC = clip.xy / max(clip.w, 0.0001);',
+    '    vec2 toCursor = partNDC - uCursorNDC;',
+    '    float dn = length(toCursor);',
+    '    hoverFall = exp(-(dn * dn) / max(uHoverRadius * uHoverRadius, 0.0001)) * uHoverActive;',
+    '    if (uHoverRepel > 0.0001) {',
+    '      float r = max(uHoverRadius, 0.0001);',
+    '      float t = dn / r;',
+    '      float radial = t * exp(1.0 - t * t);',
+    '      vec2 dir = toCursor / max(dn, 0.0001);',
+    '      vec2 tangent = vec2(-dir.y, dir.x);',
+    '      pushNDC = (dir * radial + tangent * radial * 0.35)',
+    '        * uHoverRepel * 0.5 * uHoverActive;',
+    '    }',
+    '  }',
+    '  clip.xy += pushNDC * clip.w;',
+    '  gl_Position = clip;',
+    '  float depthAtten = clamp(8.0 / max(-mvPos.z, 0.5), 0.4, 1.6);',
+    '  gl_PointSize = uParticleSize * depthAtten * (1.0 + hoverFall * uHoverScale);',
+    '  vForm = pEase;',
+    '  vVis = clamp(uVisProgress, 0.0, 1.0);',
+    '  vHoverFall = hoverFall;',
+    '}'
+  ].join('\n');
+
+  const ST_FRAG = [
+    'uniform vec3 uColorA;',
+    'uniform vec3 uColorB;',
+    'uniform vec3 uPLightDir;',
+    'uniform float uPAmbient;',
+    'uniform float uPDiffuse;',
+    'uniform float uPSpec;',
+    'uniform float uPSpecPower;',
+    'varying float vForm;',
+    'varying float vVis;',
+    'varying float vPAlpha;',
+    'varying float vHoverFall;',
+    'void main() {',
+    '  highp vec2 pc = gl_PointCoord;',
+    '  vec2 c = pc - vec2(0.5);',
+    '  float d = length(c);',
+    '  if (d > 0.5) discard;',
+    '  float disc = 1.0 - smoothstep(0.35, 0.5, d);',
+    '  float edge = smoothstep(0.18, 0.5, d);',
+    '  vec3 formedCol = mix(uColorA, uColorB, vForm);',
+    '  vec3 col = mix(formedCol, uColorA, edge * 0.65);',
+    // 지면 파티클과 같은 반구 법선 조명이라 재질이 따로 놀지 않는다
+    '  vec2 n2 = vec2(c.x, -c.y) * 2.0;',
+    '  float nz2 = clamp(1.0 - dot(n2, n2), 0.0, 1.0);',
+    '  vec3 N = vec3(n2, sqrt(nz2));',
+    '  vec3 L = normalize(uPLightDir);',
+    '  float diff = max(dot(N, L), 0.0);',
+    '  vec3 V = vec3(0.0, 0.0, 1.0);',
+    '  vec3 H = normalize(L + V);',
+    '  float spec = pow(max(dot(N, H), 0.0), max(uPSpecPower, 0.001));',
+    '  col = col * (uPAmbient + uPDiffuse * diff) + vec3(uPSpec * spec);',
+    '  gl_FragColor = vec4(col, disc * vVis * vPAlpha);',
+    '}'
+  ].join('\n');
+
+  // 0..1 사이를 부드럽게 잇는다
+  function ramp(a, b, v) {
+    const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+
+  const stations = [];
+  Array.prototype.forEach.call(document.querySelectorAll('.sc-intro .station'), function (el, i) {
+    const value = el.getAttribute('data-value') || '';
+    if (!value) return;
+
+    const z = ST.firstZ - i * ST.spacing;
+    const base = textToPoints(value, ST.count);
+    const seeds = new Float32Array(ST.count);
+    for (let k = 0; k < ST.count; k++) seeds[k] = Math.random();
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ST.count * 3), 3));
+    geo.setAttribute('aBase', new THREE.BufferAttribute(base, 2));
+    geo.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+
+    const uniforms = {
+      uStationCenter: { value: new THREE.Vector3(0, 0, z) },
+      uFormProgress: { value: 0 },
+      uVisProgress: { value: 0 },
+      uYOffset: { value: ST.yOffset },
+      uScatterRadius: { value: ST.scatterRadius },
+      uScatterHeight: { value: ST.scatterHeight },
+      uFormJitter: { value: ST.formJitter },
+      uCursorNDC: { value: new THREE.Vector2(0, 0) },
+      uHoverActive: { value: 0 },
+      uHoverRadius: { value: ST.hoverRadius },
+      uHoverRepel: { value: ST.hoverRepel },
+      uHoverScale: { value: ST.hoverScale },
+      uParticleSize: { value: ST.particleSize },
+      uTime: { value: 0 },
+      uIdleWiggle: { value: ST.idleWiggle },
+      uColorA: { value: rgb(ST.colorA) },
+      uColorB: { value: rgb(ST.colorB) },
+      uPLightDir: { value: C.pLightDir.clone().normalize() },
+      uPAmbient: { value: 0.45 },
+      uPDiffuse: { value: 0.7 },
+      uPSpec: { value: 0.4 },
+      uPSpecPower: { value: 16 }
+    };
+
+    const points = new THREE.Points(geo, new THREE.ShaderMaterial({
+      vertexShader: ST_VERT,
+      fragmentShader: ST_FRAG,
+      uniforms: uniforms,
+      transparent: true,
+      depthWrite: false,
+      depthTest: false
+    }));
+    points.frustumCulled = false;
+    points.renderOrder = 100;
+    scene.add(points);
+
+    // 문구를 글자 단위 칸에 담는다. 칸이 넘치는 부분을 잘라 아래에서 올라온다
+    let idx = 0;
+    Array.prototype.forEach.call(el.querySelectorAll('.pre, .label, .post'), function (part) {
+      const frag = document.createDocumentFragment();
+      Array.from(part.textContent).forEach(function (ch) {
+        if (ch === ' ') {
+          frag.appendChild(document.createTextNode(' '));
+          idx++;
+          return;
+        }
+        const cell = document.createElement('span');
+        cell.className = 'cell';
+        const inner = document.createElement('i');
+        inner.textContent = ch;
+        inner.style.transitionDelay = (idx * 35) + 'ms';
+        cell.appendChild(inner);
+        frag.appendChild(cell);
+        idx++;
+      });
+      part.textContent = '';
+      part.appendChild(frag);
+    });
+
+    stations.push({ el: el, z: z, uniforms: uniforms, form: 0, on: false });
+  });
+
+
+  if (stations.length) {
+    C.tunnelStartCamZ = stations[stations.length - 1].z - 1;
+  }
+  C.tunnelEndCamZ = C.tunnelStartCamZ - C.tunnelSpan;
+
+  C.outroCamZ = C.tunnelEndCamZ - 2;
+  C.outroSplitCamZ = C.outroCamZ - 3;
+  C.diveEndCamZ = C.outroSplitCamZ - 3;
+
+  // ── 후처리 - 색수차와 렌즈 왜곡 ──────────────────────
+  const rt = new THREE.WebGLRenderTarget(1, 1, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat
+  });
+  const postScene = new THREE.Scene();
+  const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const postUniforms = {
+    tDiffuse: { value: rt.texture },
+    uCA: { value: C.postCA },
+    uLens: { value: C.postLens }
+  };
+  postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    uniforms: postUniforms,
+    vertexShader: [
+      'varying vec2 vUv;',
+      'void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }'
+    ].join('\n'),
+    fragmentShader: [
+      'uniform sampler2D tDiffuse;',
+      'uniform float uCA;',
+      'uniform float uLens;',
+      'varying vec2 vUv;',
+      'void main() {',
+      '  vec2 uv = vUv - 0.5;',
+      '  float r2 = dot(uv, uv);',
+      '  uv *= 1.0 + uLens * r2;',
+      '  uv += 0.5;',
+      '  vec2 dir = uv - 0.5;',
+      '  float d = length(dir);',
+      '  vec2 off = dir * d * uCA;',
+      '  float r = texture2D(tDiffuse, uv - off).r;',
+      '  float g = texture2D(tDiffuse, uv      ).g;',
+      '  float b = texture2D(tDiffuse, uv + off).b;',
+      '  gl_FragColor = vec4(r, g, b, 1.0);',
+      '}'
+    ].join('\n'),
+    depthTest: false,
+    depthWrite: false
+  })));
+
+  // ── 크기 / 입력 ─────────────────────────────────────
+  function resize() {
+    const box = canvas.getBoundingClientRect();
+    const w = Math.round(box.width) || window.innerWidth;
+    const h = Math.round(box.height) || window.innerHeight;
+    const dpr = renderer.getPixelRatio();
+    renderer.setSize(w, h, false);
+    rt.setSize(Math.round(w * dpr), Math.round(h * dpr));
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(resize);
+  if (window.ScrollTrigger) ScrollTrigger.addEventListener('refresh', resize);
+
+  let mx = 0;
+  let my = 0;
+  let elev = 0;
+  let azim = 0;
+  let hoverTarget = 0;
+
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const hit = new THREE.Vector3();
+  let hoverX = 0;
+  let hoverZ = 0;
+
+  const TRAIL = 16;
+  const trail = [];
+
+  window.addEventListener('pointermove', function (e) {
+    mx = (e.clientX / window.innerWidth) * 2 - 1;
+    my = (e.clientY / window.innerHeight) * 2 - 1;
+    hoverTarget = 1;
+
+    ndc.set(mx, -my);
+    ray.setFromCamera(ndc, camera);
+    if (!ray.ray.intersectPlane(ground, hit)) return;
+    hoverX = hit.x;
+    hoverZ = hit.z;
+
+    const last = trail[0];
+    // 너무 촘촘하면 같은 자리에 계속 찍힌다
+    if (last && Math.hypot(hit.x - last.x, hit.z - last.z) < 0.02) return;
+    trail.unshift({ x: hit.x, z: hit.z, born: performance.now() });
+    if (trail.length > TRAIL) trail.length = TRAIL;
+  });
+  window.addEventListener('pointerleave', function () { hoverTarget = 0; });
+
+  // 클릭하면 그 자리에서 파문이 퍼진다
+  let clickSlot = 0;
+  canvas.addEventListener('pointerdown', function (e) {
+    ndc.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
+    ray.setFromCamera(ndc, camera);
+    if (!ray.ray.intersectPlane(ground, hit)) return;
+    shared.uClicks.value[clickSlot].set(hit.x, hit.z, shared.uTime.value);
+    clickSlot = (clickSlot + 1) % 4;
+  });
+
+  // ── 인트로 ──────────────────────────────────────────
+  let introStart = -1;
   document.addEventListener('intro:done', function () {
-    // 막이 걷힐 때 천 쪽으로 한 걸음 들어간다
-    gsap.to(uniforms.uEntry, { value: 1, duration: 1.2, ease: 'expo.out' });
-    gsap.to(reveal, { v: 1, duration: 2.4, ease: 'expo.out' });
-  }, { once: true });
+    if (introStart < 0) introStart = performance.now();
+  });
+
+  // ── 스크롤 - 고정된 채 골짜기를 파고든다 ──────────────
+  
+  const DIVE_DEPTH = CAM_BASE.z - C.diveEndCamZ;
+  const dive = { px: 0, len: 1 };
+  const hero = document.querySelector('.sc-intro');
+  if (hero && window.ScrollTrigger) {
+    ScrollTrigger.create({
+      trigger: hero,
+      start: 'top top',
+      end: '+=360%',
+      pin: true,
+      pinSpacing: true,
+      scrub: 0.8,
+      onRefresh: function (self) { dive.len = Math.max(self.end - self.start, 1); },
+      onUpdate: function (self) { dive.px = self.progress * Math.max(self.end - self.start, 1); }
+    });
+  }
+
+  let visible = true;
+  if (window.IntersectionObserver) {
+    new IntersectionObserver(function (entries) {
+      visible = entries[0].isIntersecting;
+    }, { rootMargin: '100px 0px' }).observe(canvas);
+  }
 
   const clock = new THREE.Clock();
+  const lookTarget = new THREE.Vector3();
+  let stationTick = performance.now();
+ 
+  // 여기서는 스크롤 픽셀 대신 카메라가 나아간 거리로 환산해 같은 지점에서 일어나게 한다
+  const INTRO_CENTER_DIST = 480 * C.scrollSpeed;   // 3.12 월드 단위
+  const INTRO_OUT_DIST = 700 * C.scrollSpeed;      // 4.55
+  const INTRO_BACK_DIST = 640 * C.scrollSpeed;     // 4.16
+  const introInner = document.querySelector('.sc-intro .intro-inner');
+  // 줄 구성이 바뀌면 상자도 새로 만들어지므로 그때마다 다시 모은다
+  let introMoves = [];
+  function collectMoves() {
+    introMoves = Array.prototype.map.call(
+      document.querySelectorAll('.sc-intro .intro-inner .move'),
+      function (el) { return { el: el, shift: 0 }; }
+    );
+  }
+  function measureIntro() {
+    introMoves.forEach(function (m) {
+      m.el.style.transform = 'none';
+      const r = m.el.getBoundingClientRect();
+      m.shift = window.innerWidth / 2 - (r.left + r.width / 2);
+      m.el.style.transform = '';
+    });
+  }
 
-  (function loop() {
-    uniforms.uTime.value = clock.getElapsedTime();
-    uniforms.uMouse.value.lerp(target, 0.1);
+  const introLines = Array.prototype.slice.call(
+    document.querySelectorAll('.sc-intro .title-line')
+  );
 
-    rx += (tRx - rx) * 0.03;
-    ry += (tRy - ry) * 0.03;
+  // 가장 긴 줄이 폭의 이만큼만 차지하게 맞춘다. 남는 양옆이 곧 가운데로 모이는 거리라
+  // 화면 폭이나 글자 수가 달라져도 움직이는 양이 일정하게 유지된다.
+  // 1 에 가까울수록 글자가 커지고 움직임은 줄어든다
+  const INTRO_FIT = 0.72;
+  function fitIntro() {
+    introLines.forEach(function (line) { line.style.fontSize = ''; });
 
-    group.rotation.x = rx;
-    group.rotation.y = ry;
-    group.rotation.z = -0.12 + scrollT * 0.22;
+    // 가로 - 가장 긴 줄을 목표 폭에 맞추는 비율 (CSS 크기보다 키우지는 않는다)
+    let scale = 1;
+    introLines.forEach(function (line) {
+      const avail = line.clientWidth * INTRO_FIT;
+      if (avail <= 0) return;
+      Array.prototype.forEach.call(line.querySelectorAll('.move'), function (move) {
+        const w = move.getBoundingClientRect().width;
+        if (w > avail) scale = Math.min(scale, avail / w);
+      });
+    });
 
-    // 인트로 동안은 멀리서 보다가 막이 걷힐 때 다가간다
-    camera.position.z = camZ + (1 - reveal.v) * 13;
+   
+    const cs = getComputedStyle(introInner);
+    const availH = introInner.clientHeight
+      - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    let titleH = 0;
+    let otherH = 0;
+    Array.prototype.forEach.call(introInner.children, function (child) {
+      const h = child.getBoundingClientRect().height;
+      if (introLines.indexOf(child) >= 0) titleH += h; else otherH += h;
+    });
+    // 덩어리 사이가 붙지 않도록 12% 는 여백으로 남긴다
+    const room = availH * 0.88 - otherH;
+    if (titleH > room && room > 0) scale = Math.min(scale, room / titleH);
 
+    if (scale >= 1) return;
+    introLines.forEach(function (line) {
+      const base = parseFloat(getComputedStyle(line).fontSize);
+      line.style.fontSize = (base * scale).toFixed(2) + 'px';
+    });
+  }
+
+  function relayoutIntro() {
+    collectMoves();
+    fitIntro();
+    measureIntro();
+  }
+  relayoutIntro();
+  window.addEventListener('resize', relayoutIntro);
+  document.addEventListener('intro:rebuilt', relayoutIntro);
+  // 핀이 걸리면 .sc-intro 가 fixed 로 바뀌며 기준 박스가 달라진다. 그때 다시 잰다
+  if (window.ScrollTrigger) ScrollTrigger.addEventListener('refresh', relayoutIntro);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayoutIntro);
+  let introEase = 0;
+  let introAbove = false;
+  const outroLines = Array.prototype.slice.call(
+    document.querySelectorAll('.sc-intro .outro-line')
+  );
+  let outroPhase = 0;
+  let outroAt = 0;
+  let scrollSm = 0;      // 부드럽게 따라가는 스크롤량
+  let prevScroll = 0;
+  let velAvg = 0;        // 평소 속도
+  let boost = 0;         // 급하게 굴렸을 때만 오르는 값 - 화각과 기울기를 흔든다
+
+  gsap.ticker.add(function () {
+    if (!visible) return;
+    const t = clock.getElapsedTime();
+    shared.uTime.value = t;
+
+    // 인트로 - 3.5초에 걸쳐 지형이 자라고 코스틱, 빛줄기가 차례로 올라온다
+    const lin = introStart < 0 ? 0 : Math.min((performance.now() - introStart) / INTRO_MS, 1);
+    shared.uIntroLinear.value = lin;
+    shared.uIntro.value = 1 - Math.pow(1 - lin, 3);
+
+    shared.uHoverX.value += (hoverX - shared.uHoverX.value) * C.hoverEasing;
+    shared.uHoverZ.value += (hoverZ - shared.uHoverZ.value) * C.hoverEasing;
+    shared.uHoverActive.value += (hoverTarget - shared.uHoverActive.value) * C.hoverEasing;
+
+    // 카메라 - 기준점을 중심으로 아주 조금 돌고, 인트로에는 위에서 내려앉는다
+    elev += (-my * 0.05 - elev) * 0.05;
+    azim += (mx * 0.05 - azim) * 0.05;
+    const m = CAM_BASE.distanceTo(CAM_TARGET);
+    const ph = Math.asin((CAM_BASE.y - CAM_TARGET.y) / m) + elev;
+    const th = Math.atan2(CAM_BASE.x - CAM_TARGET.x, CAM_BASE.z - CAM_TARGET.z) + azim;
+    camera.position.set(
+      CAM_TARGET.x + Math.sin(th) * Math.cos(ph) * m,
+      CAM_TARGET.y + Math.sin(ph) * m,
+      CAM_TARGET.z + Math.cos(th) * Math.cos(ph) * m
+    );
+    camera.position.y += (1 - shared.uIntro.value) * 8;
+
+    scrollSm += (dive.px - scrollSm) * 0.08;
+    const speed = DIVE_DEPTH / dive.len;
+    const x = -(scrollSm * speed);
+    camera.position.z += x;
+    lookTarget.copy(CAM_TARGET);
+    lookTarget.z += x;
+    camera.lookAt(lookTarget);
+
+    // 굴리는 속도가 평소보다 빠를 때만 화각이 벌어지고 화면이 살짝 기운다
+    const delta = Math.abs(scrollSm - prevScroll);
+    prevScroll = scrollSm;
+    velAvg += (delta - velAvg) * 0.04;
+    const target = 1 - Math.exp(-0.18 * Math.max(0, delta - velAvg));
+    boost += (target - boost) * (target > boost ? 0.09 : 0.04);
+    camera.rotation.x += boost * C.scrollRotateX;
+    camera.rotation.y += boost * C.scrollRotateY;
+    camera.rotation.z += boost * C.scrollRotateZ;
+    camera.fov = Math.max(15, Math.min(FOV_BASE + boost * C.scrollZoom, 110));
+    camera.updateProjectionMatrix();
+
+    // 지형은 카메라를 따라 움직이고 노이즈는 월드에 박혀 있어 새 지형이 흘러온다
+    surface.position.z = x;
+    shared.uFocusZ.value = C.focusZ + x;
+    shared.uCameraZ.value = camera.position.z;
+
+    // 회오리 - 카메라가 정해진 z 구간을 지나는 동안 파티클이 나선으로 말린다
+    const span = C.tunnelEndCamZ - C.tunnelStartCamZ;
+    let tp = Math.max(0, Math.min(1, (camera.position.z - C.tunnelStartCamZ) / span));
+    tp = tp * tp * (3 - 2 * tp);
+    shared.uTunnelProgress.value = tp;
+    shared.uSurfaceDarken.value = tp * C.surfaceDarkenMax;
+    dustUniforms.uTunnelCenterY.value = camera.position.y;
+    particlePasses.forEach(function (pass, i) {
+      pass.uniforms.uTunnelCenterX.value = camera.position.x;
+      pass.uniforms.uTunnelCenterY.value = camera.position.y;
+      if (i === 0) return;
+      pass.uniforms.uParticleOpacity.value = C.particleOpacity * tp;
+      pass.points.visible = tp > 0.001;
+    });
+
+    if (introInner) {
+      // x 는 스크롤로 흘러간 거리(음수). 마우스 시선에 흔들리지 않는 값이라 이걸 쓴다
+      const gone = -x;
+      introEase += (Math.min(1, gone / INTRO_CENTER_DIST) - introEase) * 0.12;
+      const k = 1 - Math.pow(1 - Math.min(1, introEase), 3);
+      for (let i = 0; i < introMoves.length; i++) {
+        const m = introMoves[i];
+        m.el.style.transform = 'translateX(' + (k * m.shift).toFixed(2) + 'px)';
+      }
+      // 걷을 때와 되돌릴 때 지점을 어긋나게 해서 경계에서 깜빡이지 않는다
+      const above = introAbove ? gone > INTRO_BACK_DIST : gone > INTRO_OUT_DIST;
+      if (above !== introAbove) {
+        introAbove = above;
+        introInner.classList.toggle('is-above', above);
+      }
+    }
+
+    // 구간 스테이션 - 다가가면 파티클이 숫자로 모이고, 지나가면 다시 흩어진다.
+    // 회오리가 시작되면 전부 걷는다
+    const now = performance.now();
+    if (stations.length) {
+      const dt = Math.min(now - stationTick, 100);
+      stationTick = now;
+      const off = ST.triggerOffset;
+      for (let i = 0; i < stations.length; i++) {
+        const st = stations[i];
+        const rel = camera.position.z - st.z;
+        // 다가올 때 차오르고 지나가면 빠진다
+        const target = (1 - ramp(off, off + 6, rel)) * ramp(-(off + 6), -off, rel) * (1 - tp);
+        const gap = target - st.form;
+        const step = dt / Math.max(gap >= 0 ? ST.formInMs : ST.formOutMs, 1);
+        st.form = Math.abs(gap) <= step ? target : st.form + Math.sign(gap) * step;
+        st.uniforms.uFormProgress.value = st.form;
+        st.uniforms.uVisProgress.value =
+          ramp(-(off + 10), -off, rel) * (1 - ramp(off, off + 10, rel));
+        st.uniforms.uTime.value = t;
+        st.uniforms.uCursorNDC.value.set(mx, -my);
+        st.uniforms.uHoverActive.value = shared.uHoverActive.value;
+
+        // 문구는 스테이션에 닿기 조금 전 구간에서만 올라와 있는다
+        const on = tp < 0.02 && rel > -ST.labelDisappear && rel < ST.labelAppear;
+        if (on !== st.on) {
+          st.on = on;
+          st.el.classList.toggle('is-on', on);
+        }
+      }
+    }
+
+    // 마무리 문구 - 회오리가 다 만들어지면 첫 문구가 뜨고,
+    if (outroLines.length) {
+      let phase = 0;
+      if (camera.position.z <= C.outroCamZ) {
+        if (outroPhase === 0) outroAt = now;
+        phase = (camera.position.z <= C.outroSplitCamZ
+          || (outroAt > 0 && now - outroAt >= C.outroHoldMs)) ? 2 : 1;
+      }
+      if (phase !== outroPhase) {
+        outroPhase = phase;
+        if (phase === 0) outroAt = 0;
+        outroLines.forEach(function (el, i) {
+          const on = phase === i + 1;
+          el.classList.toggle('is-on', on);
+          // 지나간 문구는 위로 빠지고, 아직 안 나온 문구는 아래에 대기한다
+          el.classList.toggle('is-out', !on && phase > i);
+        });
+      }
+    }
+
+    // 커서 자취를 셰이더로 넘긴다. 커서에서 멀어진 마디일수록 가늘어진다
+    let arc = 0;
+    for (let i = 0; i < TRAIL; i++) {
+      const slot = surfaceUniforms.uTrail.value[i];
+      const node = trail[i];
+      if (!node) { slot.set(0, 0, 0, -1); continue; }
+      if (i > 0) {
+        const prev = trail[i - 1];
+        arc += Math.hypot(node.x - prev.x, node.z - prev.z);
+      }
+      slot.set(node.x, node.z, arc, (now - node.born) / 1000);
+    }
+
+    // 지형이 검게 잠기면 배경도 같이 잠겨 수평선 경계가 남지 않는다
+    const bg = 1 - shared.uSurfaceDarken.value;
+    clearColor.setRGB(FOG_RGB.x * bg, FOG_RGB.y * bg, FOG_RGB.z * bg);
+    renderer.setClearColor(clearColor, 1);
+
+    renderer.setRenderTarget(rt);
     renderer.render(scene, camera);
-    requestAnimationFrame(loop);
-  })();
+    renderer.setRenderTarget(null);
+    renderer.render(postScene, postCam);
+  });
 })();
 
 
 
 
-// 프로젝트 섹션 헤드라인 - 단어가 차례로 올라오고, 짚은 단어만 살아난다
 (function () {
   const title = document.querySelector('.sc-projects .desc-area .title');
   if (!title) return;
 
-  // 단어 단위로 마스크에 담는다 (<br>은 그대로 둔다)
   const words = [];
   const frag = document.createDocumentFragment();
 
@@ -588,9 +1745,7 @@ $('.btn-contact').click(function(){
 
 
 //sc-project
-// 카드를 각각 돌리지 않는다. 카드는 평평한 한 줄로 두고, 월드 공간 높이장이
-// 줄 전체를 하나의 띠처럼 휜다. 깊이는 대칭 포물선이 아니라 sin(pi*q)*exp(-q*q)
-// 비대칭 S자라서 왼쪽이 앞으로, 오른쪽이 뒤로 흐른다. 대칭 포물선을 쓰면 원통이 된다.
+
 (function () {
   const section = document.querySelector('.sc-projects');
   const sliderEls = Array.from(document.querySelectorAll('.sc-projects .slider'));
@@ -1037,18 +2192,12 @@ $('.btn-contact').click(function(){
         return;
       }
 
-      // 카드는 월드 원점에 두고 카메라를 내린다. 카드를 올리면 바닥이 눈높이에 붙어
-      // 납작해지기 때문이다. 지평선(화면 정중앙)이 카드 아래 HORIZON_DROP만큼에 오도록
-      // 무대 높이를 잡으면, 카드는 위쪽에 앉고 아래 절반이 전부 바닥이 된다.
-      // 카드 크기에 비례해서 노출 장수가 바뀌어도 비율이 그대로다
-      // 바닥은 카드가 딛고 선 자리에 둔다. 여기서 더 내리면 바닥에 비친 상이
-      // 화면 아래로 빠져나가 안 보인다. 카메라도 바닥보다 위에 있어야 한다
+      
       panel.cardY = 0;
       panel.camY = 0;
       panel.floorY = -panel.cardH / 2 - 24;
       panel.stageH = Math.round(panel.cardH * 2.5);
 
-      // 캡션이 카드 폭을 따라가도록 넘겨준다
       section.style.setProperty('--card-w', panel.cardW + 'px');
       panel.slot = panel.cardW + GAP;
       panel.total = cards.length * panel.slot;
@@ -1071,9 +2220,7 @@ $('.btn-contact').click(function(){
       const halfW = panel.stageW / 2;
       const run = halfW * 4;
 
-      // 바닥은 카메라 앞쪽까지 나와야 화면 아래가 안 빈다.
-      // 카메라에 가까울수록 확대되므로 화면 바닥을 덮는 깊이를 역산한다
-      // 카메라와 바닥의 높이차가 화면 아래를 덮는 데 필요한 확대율을 정한다
+     
       const drop = Math.max(panel.camY - panel.floorY, 1);
       const needScale = panel.stageH / (2 * drop) + 0.4;
       const nearZ = Math.min(CAM_Z * 0.72, CAM_Z * (1 - 1 / needScale));
@@ -1200,9 +2347,7 @@ $('.btn-contact').click(function(){
     panels.forEach(function (p) { p.group.visible = p === panel; });
     active = panel;
     panel.el.appendChild(renderer.domElement);
-    // 탭을 바꾸면 캡션이 처음부터 다시 올라온다.
-    // display:none 이던 요소에 곧바로 클래스를 붙이면 시작 상태가 없어 트랜지션이
-    // 걸리지 않는다. 내려간 상태를 한 프레임 그린 뒤에 붙인다
+   
     panel.cards.forEach(function (card) { card.item.classList.remove('is-in'); });
     panel.revealHold = true;
     panel.refresh();
