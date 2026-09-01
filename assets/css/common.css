@@ -42,6 +42,13 @@
     border-radius: 3em;
   }
 
+  /* 마우스가 없는 기기에서는 커서를 따라갈 대상이 없어 화면 구석에 점만 남는다 */
+  @media (hover: none), (pointer: coarse) {
+    .curser-wrap {
+      display: none;
+    }
+  }
+
  
 
         /* 1040이하~ 768px [1024px] */

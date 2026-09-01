@@ -506,6 +506,12 @@ html.is-intro body{
     .sc-intro .outro-line{
         font-size: 7vw;
     }
+    /* 좁은 화면에서는 프로젝트 섹션이 뷰포트보다 조금밖에 안 커서
+       핀이 걸리자마자 sc-about 이 덮어버린다. 어바웃을 아래로 밀어
+       핀에 머무는 구간을 늘린다. 그 여백은 핀 때문에 화면에 안 보인다 */
+    .sc-about{
+        margin-top: 45vh;
+    }
 }
 @media (max-width: 768px){
     .sc-projects .content-item{
