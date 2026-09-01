@@ -129,6 +129,8 @@ $('.btn-contact').click(function(){
         running = false;
         document.documentElement.classList.remove('is-intro');
         intro.remove();
+        // 스크롤이 잠겨 있던 동안 잡힌 위치값을 다시 계산한다
+        if (window.ScrollTrigger) ScrollTrigger.refresh();
       }
     }, LOAD + 0.55)
     // 막이 걷히는 동안 이미 히어로가 살아나 있도록 먼저 신호를 보낸다
@@ -737,7 +739,7 @@ $(window).mousemove(function(e){
       y:y,
   })
 
-})
+});
 
 
 // 히어로 영역에서는 보라 점 커서를 감춘다
@@ -761,3 +763,22 @@ $(window).mousemove(function(e){
 
 
 
+
+
+// 프로젝트 섹션이 화면 하단에 걸린 채 멈추고, 어바웃 섹션이 그 위로 올라와 덮는다
+(function () {
+  const projects = document.querySelector('.sc-projects');
+  const about = document.querySelector('.sc-about');
+  if (!projects || !about || !window.ScrollTrigger) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  ScrollTrigger.create({
+    trigger: projects,
+    start: 'bottom bottom',
+    endTrigger: about,
+    end: 'top top',
+    pin: projects,
+    pinSpacing: false,
+    anticipatePin: 1
+  });
+})();

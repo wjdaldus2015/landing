@@ -479,6 +479,7 @@ border-radius: 20px;
 
 .sc-about{
     position: relative;
+    z-index: 6;
     padding-top: 120px;
     padding-bottom: 120px;
     background: #e0e0df;
@@ -593,6 +594,7 @@ border-radius: 20px;
     border-radius: 0 0 var(--border-radius) var(--border-radius);
     background: var(--color-primary);
     position: relative;
+    z-index: 6;
     display: flex;
     width: max-content;
     animation: marquee 60s infinite linear;
