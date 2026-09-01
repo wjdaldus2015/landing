@@ -588,145 +588,410 @@ $('.btn-contact').click(function(){
 
 
 //sc-project
-const projectSliders = [];
+// 참고 사이트는 카드 "면 자체"가 휘어 있다. CSS transform은 평면을 회전·이동만 시킬 수 있고
+// 면을 휘게 하지 못해서, 썸네일은 three.js로 그리고 제목·링크는 DOM 그대로 위에 얹는다.
+(function () {
+  const section = document.querySelector('.sc-projects');
+  const sliderEls = Array.from(document.querySelectorAll('.sc-projects .slider'));
+  if (!section || !sliderEls.length || !window.THREE) return;
 
-document.querySelectorAll('.sc-projects .slider').forEach(slider => {
-  const list = slider.querySelector('.content-list');
-  const dotWrap = slider.querySelector('.slider-dots');
-  const originals = Array.from(slider.querySelectorAll('.content-item'));
-  const count = originals.length;
-  let index = 0;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // 화면 밖 여유 슬롯을 확보해야 순환 지점이 안 보인다
-  while (slider.querySelectorAll('.content-item').length < count + 5) {
-    originals.forEach(item => {
-      const clone = item.cloneNode(true);
-      clone.setAttribute('aria-hidden', 'true');
-      clone.querySelectorAll('a').forEach(link => link.tabIndex = -1);
-      list.appendChild(clone);
-    });
+  const CAM_Z = 1400;    // 카메라 거리. 줄이면 원근이 강해진다
+  const CURVE = 0.00055; // 가장자리로 갈수록 뒤로 휘는 정도
+  const GAP = 40;        // 카드 사이 간격(px)
+  const LERP = 0.1;      // 목표를 따라가는 속도. 낮을수록 길게 미끄러진다
+  const MAX_TEXTURE = 1600; // 텍스처로 올릴 이미지의 최대 변 길이(px)
+
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  } catch (err) {
+    return;
   }
+  if (!renderer || !renderer.getContext()) return;
 
-  const items = Array.from(slider.querySelectorAll('.content-item'));
-  const total = items.length;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.setClearColor(0x000000, 0);
+  renderer.domElement.className = 'slider-canvas';
 
-  originals.forEach((_, i) => {
-    const dot = document.createElement('button');
-    dot.type = 'button';
-    dot.className = 'dot';
-    dot.innerHTML = '<span class="blind">' + (i + 1) + '번째 프로젝트</span>';
-    dot.addEventListener('click', () => go(index + ((i - index % count) + count) % count));
-    dotWrap.appendChild(dot);
-  });
-  const dots = Array.from(dotWrap.children);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 8000);
+  camera.position.z = CAM_Z;
 
-  function render(animate) {
-    items.forEach((item, i) => {
-      let offset = (i - index) % total;
-      if (offset > total / 2) offset -= total;
-      if (offset < -total / 2) offset += total;
+  let dirty = true;    // 배치를 다시 계산해야 하는지
+  let onScreen = true; // 섹션이 화면 밖이면 그리지 않는다
 
-      const step = Math.abs(offset);
-      const dir = Math.sign(offset);
-      const opacity = step > 2 ? 0 : 1;
+  const VERTEX = [
+    'uniform float uCurve;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '  vUv = uv;',
+    '  vec4 world = modelMatrix * vec4(position, 1.0);',
+    '  world.z -= uCurve * world.x * world.x;',
+    '  gl_Position = projectionMatrix * viewMatrix * world;',
+    '}'
+  ].join('\n');
 
-      // 뒤쪽 끝에서 앞쪽 끝으로 넘어가는 카드는 화면 밖에서 즉시 옮긴다
-      const jumped = item.dataset.offset !== undefined &&
-                     Math.abs(Number(item.dataset.offset) - offset) > total / 2;
-      item.dataset.offset = offset;
+  const FRAGMENT = [
+    'uniform sampler2D uTexture;',
+    'uniform vec2 uCover;',
+    'uniform vec2 uSize;',
+    'uniform float uRadius;',
+    'varying vec2 vUv;',
+    'void main() {',
+    '  vec2 uv = (vUv - 0.5) * uCover + 0.5;',
+    '  vec4 color = texture2D(uTexture, uv);',
+    '  vec2 p = (vUv - 0.5) * uSize;',
+    '  vec2 d = abs(p) - (uSize * 0.5 - vec2(uRadius));',
+    '  float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - uRadius;',
+    '  color.a *= 1.0 - smoothstep(-1.0, 1.0, dist);',
+    '  gl_FragColor = color;',
+    '}'
+  ].join('\n');
 
-      item.classList.toggle('active', step === 0);
-      item.style.zIndex = 10 - step;
-      item.style.pointerEvents = step > 2 ? 'none' : '';
-
-      const position = {
-        xPercent: -50 + dir * (step === 1 ? 108 : step >= 2 ? 190 : 0),
-        yPercent: -50,
-        scale: step === 0 ? 1 : step === 1 ? 0.72 : 0.52,
-        rotateY: dir * (step === 0 ? 0 : 28)
+  // 카드마다 텍스처를 만든다. DOM에 이미 있는 img/video를 그대로 재사용해서 중복 다운로드를 피한다
+  function makeSource(item) {
+    const video = item.querySelector('.thumb-area video');
+    if (video) {
+      const texture = new THREE.VideoTexture(video);
+      texture.minFilter = THREE.LinearFilter;
+      texture.encoding = THREE.sRGBEncoding;
+      const played = video.play();
+      if (played && played.catch) played.catch(function () {});
+      video.addEventListener('loadedmetadata', function () { dirty = true; });
+      return {
+        texture: texture,
+        aspect: function () { return (video.videoWidth || 16) / (video.videoHeight || 9); }
       };
+    }
 
-      gsap.to(item, Object.assign({
-        opacity: opacity,
-        duration: animate && !jumped ? 0.7 : 0,
-        ease: 'power3.out'
-      }, position));
+    const img = item.querySelector('.thumb-area img');
+    if (img) {
+      const texture = new THREE.Texture();
+      texture.minFilter = THREE.LinearFilter;
+      texture.encoding = THREE.sRGBEncoding;
+
+      function useImage() {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        if (!w || !h) return;
+
+        // 원본이 크면 그대로 올릴 때 GPU 메모리를 크게 먹는다. 캔버스로 줄여서 올린다
+        if (Math.max(w, h) > MAX_TEXTURE) {
+          const scale = MAX_TEXTURE / Math.max(w, h);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(w * scale);
+          canvas.height = Math.round(h * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          texture.image = canvas;
+        } else {
+          texture.image = img;
+        }
+        // 실제 비율을 알아야 cover 계산이 맞아서 배치를 다시 돌린다
+        texture.needsUpdate = true;
+        dirty = true;
+      }
+
+      if (img.complete && img.naturalWidth) useImage();
+      else img.addEventListener('load', useImage, { once: true });
+
+      return {
+        texture: texture,
+        aspect: function () { return (img.naturalWidth || 16) / (img.naturalHeight || 9); }
+      };
+    }
+
+    // 이미지가 없는 준비중 카드는 라벨만 그린 캔버스를 텍스처로 쓴다
+    const label = item.querySelector('.thumb-empty span');
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#1b1d20';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.font = '500 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label ? label.textContent : '', canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.encoding = THREE.sRGBEncoding;
+    return { texture: texture, aspect: function () { return 16 / 9; } };
+  }
+
+  const panels = sliderEls.map(function (el) {
+    const items = Array.from(el.querySelectorAll('.content-item'));
+    if (!items.length) return null;
+
+    const group = new THREE.Group();
+    group.visible = false;
+    scene.add(group);
+
+    const cards = items.map(function (item) {
+      const source = makeSource(item);
+      const material = new THREE.ShaderMaterial({
+        transparent: true,
+        vertexShader: VERTEX,
+        fragmentShader: FRAGMENT,
+        uniforms: {
+          uTexture: { value: source.texture },
+          uCover: { value: new THREE.Vector2(1, 1) },
+          uSize: { value: new THREE.Vector2(1, 1) },
+          uRadius: { value: 30 },
+          uCurve: { value: CURVE }
+        }
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 48, 24), material);
+      group.add(mesh);
+      return { item: item, mesh: mesh, material: material, aspect: source.aspect };
     });
 
-    const current = ((index % count) + count) % count;
-    dots.forEach((dot, i) => dot.classList.toggle('active', i === current));
-  }
+    const panel = {
+      el: el,
+      cards: cards,
+      group: group,
+      cardW: 0,
+      thumbH: 0,
+      meshY: 0,
+      slot: 0,
+      total: 0,
+      stageW: 0,
+      stageH: 0,
+      ready: false,
+      target: 0,
+      current: 0
+    };
 
-  function go(i) {
-    index = (i % total + total) % total;
-    render(true);
-  }
+    // 숨은 패널은 폭이 0이라 잴 수 없다. 탭으로 보일 때 다시 잰다
+    panel.measure = function () {
+      const first = items[0];
+      const thumb = first.querySelector('.thumb-area');
+      panel.cardW = first.offsetWidth;
+      panel.thumbH = thumb ? thumb.offsetHeight : 0;
+      if (!panel.cardW || !panel.thumbH) {
+        panel.ready = false;
+        return;
+      }
 
-  slider.querySelector('.btn-prev').addEventListener('click', () => go(index - 1));
-  slider.querySelector('.btn-next').addEventListener('click', () => go(index + 1));
+      const tallest = items.reduce(function (max, item) {
+        return Math.max(max, item.offsetHeight);
+      }, 0);
+
+      // 썸네일 아래 캡션까지 들어가도록 무대 높이를 잡고, 메시를 캡션 높이의 절반만큼 올린다
+      panel.stageH = tallest;
+      panel.meshY = (tallest - panel.thumbH) / 2;
+      panel.slot = panel.cardW + GAP;
+      panel.total = cards.length * panel.slot;
+      el.style.height = panel.stageH + 'px';
+      panel.stageW = el.clientWidth;
+      panel.ready = true;
+    };
+
+    panel.resize = function () {
+      if (!panel.ready) return;
+      renderer.setSize(panel.stageW, panel.stageH, false);
+      camera.aspect = panel.stageW / panel.stageH;
+      camera.fov = 2 * Math.atan((panel.stageH / 2) / CAM_Z) * 180 / Math.PI;
+      camera.updateProjectionMatrix();
+    };
+
+    panel.layout = function () {
+      if (!panel.ready) return;
+
+      const half = panel.total / 2;
+      cards.forEach(function (card, i) {
+        const raw = i * panel.slot - panel.current + half;
+        const x = ((raw % panel.total) + panel.total) % panel.total - half;
+
+        card.mesh.position.set(x, panel.meshY, 0);
+        card.mesh.scale.set(panel.cardW, panel.thumbH, 1);
+        // 깊이는 셰이더가 만들어서 three가 정렬에 못 쓴다. 가운데 카드가 위로 오게 직접 지정한다
+        card.mesh.renderOrder = -Math.abs(x);
+        card.material.uniforms.uSize.value.set(panel.cardW, panel.thumbH);
+
+        const texAspect = card.aspect();
+        const planeAspect = panel.cardW / panel.thumbH;
+        if (planeAspect > texAspect) {
+          card.material.uniforms.uCover.value.set(1, texAspect / planeAspect);
+        } else {
+          card.material.uniforms.uCover.value.set(planeAspect / texAspect, 1);
+        }
+
+        // 셰이더가 밀어낸 깊이를 그대로 계산해야 DOM 캡션이 카드와 같은 자리에 붙는다
+        const z = -CURVE * x * x;
+        const scale = CAM_Z / (CAM_Z - z);
+        const screenX = panel.stageW / 2 + x * scale;
+        const screenY = panel.stageH / 2 - panel.meshY * scale;
+        const inView = screenX > -panel.cardW && screenX < panel.stageW + panel.cardW;
+
+        card.mesh.visible = inView;
+
+        const style = card.item.style;
+        if (!inView) {
+          style.visibility = 'hidden';
+          return;
+        }
+        const anchor = panel.thumbH / 2;
+        style.visibility = '';
+        style.left = screenX + 'px';
+        style.top = screenY + 'px';
+        style.transformOrigin = '50% ' + anchor + 'px';
+        style.transform = 'translate(-50%, ' + -anchor + 'px) scale(' + scale + ')';
+      });
+    };
+
+    panel.refresh = function () {
+      panel.measure();
+      panel.resize();
+      panel.layout();
+    };
+
+    return panel;
+  }).filter(Boolean);
+
+  if (!panels.length) return;
+
+  let active = panels[0];
+
+  function activate(panel) {
+    panels.forEach(function (p) { p.group.visible = p === panel; });
+    active = panel;
+    panel.el.appendChild(renderer.domElement);
+    panel.refresh();
+  }
 
   // 마우스 그랩 / 터치 스와이프
   let dragging = false;
-  let startX = 0;
+  let pointerX = 0;
   let moved = 0;
+  let velocity = 0;
 
-  slider.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    // 화살표·도트·링크 위에서는 드래그를 잡지 않는다.
-    // 포인터를 캡처해버리면 클릭이 슬라이더로 가로채여 버튼이 안 눌린다
-    if (e.target.closest('.btn-prev, .btn-next, .dot, a')) return;
+  sliderEls.forEach(function (el) {
+    el.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || !active.ready) return;
+      // 카드 대부분이 링크라 링크 위에서도 드래그를 받아야 한다.
+      // 실제로 끌었을 때만 아래 click 핸들러가 이동을 막는다
+      dragging = true;
+      pointerX = e.clientX;
+      moved = 0;
+      velocity = 0;
+      el.setPointerCapture(e.pointerId);
+      el.classList.add('grabbing');
+    });
 
-    dragging = true;
-    startX = e.clientX;
-    moved = 0;
-    slider.setPointerCapture(e.pointerId);
-    slider.classList.add('grabbing');
+    el.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      const dx = e.clientX - pointerX;
+      pointerX = e.clientX;
+      moved += Math.abs(dx);
+      active.target -= dx;
+      // 마지막 몇 프레임을 섞어야 손 떨림에 관성이 튀지 않는다
+      velocity = velocity * 0.6 + dx * 0.4;
+    });
+
+    function endDrag() {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove('grabbing');
+      // 관성만큼 더 흐른 뒤 가장 가까운 카드에 물린다
+      const flick = Math.max(-3, Math.min(3, -velocity * 8 / active.slot));
+      active.target = (Math.round(active.target / active.slot) + Math.round(flick)) * active.slot;
+      velocity = 0;
+    }
+
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+
+    // 가로 휠(트랙패드)만 받는다. 세로 휠은 페이지 스크롤로 넘긴다
+    let wheelTimer;
+    el.addEventListener('wheel', function (e) {
+      if (!active.ready || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      active.target += e.deltaX;
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(function () {
+        active.target = Math.round(active.target / active.slot) * active.slot;
+      }, 160);
+    }, { passive: false });
+
+    el.addEventListener('keydown', function (e) {
+      if (!active.ready || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowRight' ? 1 : -1;
+      active.target = (Math.round(active.target / active.slot) + step) * active.slot;
+    });
+
+    // 드래그로 끝난 동작은 링크 이동으로 이어지지 않게
+    el.addEventListener('click', function (e) {
+      if (moved > 10) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+
+    el.addEventListener('dragstart', function (e) { e.preventDefault(); });
   });
 
-  slider.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    moved = e.clientX - startX;
+  gsap.ticker.add(function () {
+    if (!onScreen || !active.ready) return;
+
+    const distance = active.target - active.current;
+    if (Math.abs(distance) > 0.05 || dragging) {
+      active.current += distance * (reduceMotion ? 1 : LERP);
+      dirty = true;
+    }
+    if (dirty) {
+      active.layout();
+      dirty = false;
+    }
+
+    renderer.render(scene, camera);
   });
 
-  function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    slider.classList.remove('grabbing');
-    if (Math.abs(moved) > 60) go(moved < 0 ? index + 1 : index - 1);
+  // 화면 밖일 때까지 WebGL을 돌릴 이유가 없다
+  if (window.IntersectionObserver) {
+    new IntersectionObserver(function (entries) {
+      onScreen = entries[0].isIntersecting;
+    }, { rootMargin: '200px 0px' }).observe(section);
   }
 
-  slider.addEventListener('pointerup', endDrag);
-  slider.addEventListener('pointercancel', endDrag);
+  let resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { active.refresh(); }, 200);
+  });
 
-  // 드래그로 끝난 동작은 링크 이동으로 이어지지 않게
-  slider.addEventListener('click', e => {
-    if (Math.abs(moved) > 10) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-  }, true);
+  document.querySelectorAll('.btn-tab').forEach(function (button) {
+    button.addEventListener('click', function () {
+      const tab = button.getAttribute('data-tab');
 
-  slider.addEventListener('dragstart', e => e.preventDefault());
+      document.querySelectorAll('.btn-tab').forEach(function (btn) {
+        btn.classList.toggle('active', btn === button);
+      });
 
-  render(false);
-  projectSliders.push({ el: slider, render: render });
-});
+      let next = null;
+      panels.forEach(function (panel) {
+        const visible = panel.el.getAttribute('data-panel') === tab;
+        panel.el.classList.toggle('hidden', !visible);
+        if (visible) next = panel;
+      });
+      if (next) activate(next);
 
-document.querySelectorAll('.btn-tab').forEach(button => {
-  button.addEventListener('click', () => {
-    const tab = button.getAttribute('data-tab');
-
-    document.querySelectorAll('.btn-tab').forEach(btn => {
-      btn.classList.toggle('active', btn === button);
-    });
-
-    projectSliders.forEach(slider => {
-      const visible = slider.el.getAttribute('data-panel') === tab;
-      slider.el.classList.toggle('hidden', !visible);
-      if (visible) slider.render(false);
+      // 패널마다 카드 높이가 달라 핀 구간 길이가 바뀐다
+      if (window.ScrollTrigger) ScrollTrigger.refresh();
     });
   });
-});
+
+  // WebGL이 준비된 뒤에야 DOM 썸네일을 감춘다. 초기화에 실패하면 기존 화면이 그대로 남는다
+  section.classList.add('is-gl');
+  activate(panels[0]);
+})();
 
 
 $(window).mousemove(function(e){
