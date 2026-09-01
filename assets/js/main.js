@@ -588,8 +588,9 @@ $('.btn-contact').click(function(){
 
 
 //sc-project
-// 참고 사이트처럼 카드 면이 활처럼 휘고 드래그하면 물결처럼 늘어진다.
-// 바닥 그리드와 반사까지 한 씬에 넣어야 해서 배경·그림자 모두 three.js로 그린다.
+// 카드를 각각 돌리지 않는다. 카드는 평평한 한 줄로 두고, 월드 공간 높이장이
+// 줄 전체를 하나의 띠처럼 휜다. 깊이는 대칭 포물선이 아니라 sin(pi*q)*exp(-q*q)
+// 비대칭 S자라서 왼쪽이 앞으로, 오른쪽이 뒤로 흐른다. 대칭 포물선을 쓰면 원통이 된다.
 (function () {
   const section = document.querySelector('.sc-projects');
   const sliderEls = Array.from(document.querySelectorAll('.sc-projects .slider'));
@@ -597,15 +598,18 @@ $('.btn-contact').click(function(){
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const CAM_Z = 1500;      // 카메라 거리. 줄이면 원근이 강해진다
-  const ARC = 0.00055;     // 카드 줄이 뒤로 물러나는 곡률
-  const BOW = 90;          // 카드 한 장이 앞으로 휘는 정도(px)
-  const WAVE_LEN = 900;    // 물결 한 주기 길이(px)
-  const WAVE_MAX = 70;     // 드래그가 가장 빠를 때 늘어지는 최대 높이(px)
-  const GAP = 140;         // 카드 사이 간격(px)
-  const FLOOR_GAP = 30;    // 카드 아래에서 바닥까지 거리(px)
-  const LERP = 0.09;       // 목표를 따라가는 속도. 낮을수록 길게 미끄러진다
+  const CAM_Z = 1500;
+  const GAP = 140;          // 카드 사이 간격(px)
+  const LERP = 0.09;
+  const VEL_NORM = 70;      // 이 속도(px/프레임)에서 변형이 최대가 된다
   const MAX_TEXTURE = 1600;
+
+  // 띠 모양을 정하는 값들
+  const SHEET_T = 1.15;     // S가 프레임의 얼마를 도는가
+  const SHEET_C = 1;        // 0이면 대칭 그릇(=원통), 1이면 비대칭 S
+  const SHEET_DEPTH = 0.2;  // 파고. 프러스텀 반너비에 대한 비율
+  const SHEET_VEL = 1.1;    // 빠를수록 파고가 커지는 정도
+  const LEAN_DOOR = -0.12;  // 문짝처럼 한쪽으로 기우는 정도
 
   let renderer;
   try {
@@ -618,34 +622,97 @@ $('.btn-contact').click(function(){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.setClearColor(0x000000, 0);
-  renderer.sortObjects = true;
   renderer.domElement.className = 'slider-canvas';
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(50, 1, 1, 12000);
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 20000);
   camera.position.z = CAM_Z;
 
   let dirty = true;
   let onScreen = true;
-  let wave = 0; // 드래그 속도를 따라오는 물결 세기
 
-  // 카드 한 장이 활처럼 휘고, 줄 전체가 물결치도록 정점을 옮긴다
-  const CARD_VERT = [
-    'uniform float uBow;',
-    'uniform float uWaveAmp;',
-    'uniform float uWaveLen;',
-    'uniform float uWavePhase;',
+  // ── 띠(sheet) — 원본과 같은 수식 ─────────────────────────────
+  const SHEET_GLSL = [
+    'const float SHEET_PI = 3.141592653589793;',
+    'const float SHEET_BANK = -0.16;',   // 파형 기울기를 따라 눕는 각
+    'const float SHEET_DIAG = 0.03;',    // 띠 전체가 오른쪽으로 살짝 올라간다
+    'const float SHEET_REAR_Y = 0.1;',   // 흐를 때 뒤쪽이 들린다
+    'const float SHEET_REAR_Z = 0.2;',
+    'const float SHEET_VTWIST = 1.8;',   // 흐를 때 양 끝이 비틀린다
+    'const float SHEET_TAIL = 1.0;',
+    'const float SHEET_SHIFT = -0.2;',
+    'uniform float u_sheetW;',
+    'uniform float u_sheetD;',
+    'uniform float u_sheetT;',
+    'uniform float u_sheetC;',
+    'uniform float u_sheetP;',
+    'uniform float u_sheetV;',
+    'uniform float u_leanA;',
+    'uniform float u_leanW;',
+    'float sheetQ(float wx) {',
+    '  return wx / max(u_sheetW, 0.0001) * u_sheetT + SHEET_SHIFT;',
+    '}',
+    'float sheetShape(float q) {',
+    '  return mix(1.0 - q * q, sin(SHEET_PI * q), u_sheetC) * exp(-SHEET_TAIL * q * q);',
+    '}',
+    'float sheetShapeSlope(float q) {',
+    '  float g = exp(-SHEET_TAIL * q * q);',
+    '  float bowl = -2.0 * q * (1.0 + SHEET_TAIL * (1.0 - q * q));',
+    '  float ess = SHEET_PI * cos(SHEET_PI * q) - 2.0 * SHEET_TAIL * q * sin(SHEET_PI * q);',
+    '  return mix(bowl, ess, u_sheetC) * g;',
+    '}',
+    'float sheetZ(float wx) {',
+    '  return -u_sheetD * sheetShape(sheetQ(wx));',
+    '}',
+    'float sheetRoll(float wx) {',
+    '  if (u_sheetW < 0.001) return 0.0;',
+    '  return SHEET_BANK * sheetShapeSlope(sheetQ(wx)) / SHEET_PI * u_sheetC * u_sheetP;',
+    '}',
+    'vec4 sheetWind(vec4 w) {',
+    '  float a = sheetRoll(w.x);',
+    '  if (u_sheetV > 0.001 && u_sheetW > 0.001 && u_sheetP > 0.001) {',
+    '    float qe = w.x / u_sheetW;',
+    '    a += SHEET_VTWIST * u_sheetV * smoothstep(0.3, 0.9, abs(qe)) * sign(qe) * u_sheetP;',
+    '  }',
+    '  if (abs(a) < 0.0001) return w;',
+    '  float s = sin(a);',
+    '  float c = cos(a);',
+    '  return vec4(w.x, w.y * c - w.z * s, w.y * s + w.z * c, w.w);',
+    '}',
+    'vec4 sheet(vec4 w) {',
+    '  w = sheetWind(w);',
+    '  w.z += sheetZ(w.x) * u_sheetP;',
+    '  if (u_sheetW > 0.001) {',
+    '    float qw = w.x / u_sheetW;',
+    '    w.y += SHEET_DIAG * w.x * u_sheetP;',
+    '    if (u_sheetV > 0.001) {',
+    '      float m = 1.0 - smoothstep(-1.0, 0.3, qw);',
+    '      w.y += SHEET_REAR_Y * u_sheetW * u_sheetV * m * u_sheetP;',
+    '      w.z += SHEET_REAR_Z * u_sheetW * u_sheetV * m * u_sheetP;',
+    '    }',
+    '  }',
+    '  return w;',
+    '}',
+    'float leanRamp(float s) {',
+    '  s = clamp(s, -1.0, 1.0);',
+    '  return s * (1.5 - 0.5 * s * s);',
+    '}',
+    'vec4 lean(vec4 w, float k) {',
+    '  if (u_leanW > 0.001 && k > 0.001) {',
+    '    w.z += u_leanA * leanRamp(w.x / u_leanW) * k;',
+    '  }',
+    '  return w;',
+    '}'
+  ].join('\n');
+
+  const CARD_VERT = SHEET_GLSL + '\n' + [
     'varying vec2 vUv;',
-    'varying float vFade;',
     'void main() {',
     '  vUv = uv;',
-    '  vec3 pos = position;',
-    '  float t = uv.x - 0.5;',
-    '  pos.z += uBow * (1.0 - 4.0 * t * t);',
-    '  vec4 world = modelMatrix * vec4(pos, 1.0);',
-    '  world.y += sin(world.x / uWaveLen * 6.2831853 + uWavePhase) * uWaveAmp;',
-    '  vFade = uv.y;',
-    '  gl_Position = projectionMatrix * viewMatrix * world;',
+    '  vec4 w = modelMatrix * vec4(position, 1.0);',
+    '  w = sheet(w);',
+    '  w = lean(w, u_sheetP);',
+    '  gl_Position = projectionMatrix * viewMatrix * w;',
     '}'
   ].join('\n');
 
@@ -657,7 +724,6 @@ $('.btn-contact').click(function(){
     'uniform float uOpacity;',
     'uniform float uMirror;',
     'varying vec2 vUv;',
-    'varying float vFade;',
     'void main() {',
     '  vec2 uv = (vUv - 0.5) * uCover + 0.5;',
     '  vec4 color = texture2D(uTexture, uv);',
@@ -665,54 +731,112 @@ $('.btn-contact').click(function(){
     '  vec2 d = abs(p) - (uSize * 0.5 - vec2(uRadius));',
     '  float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - uRadius;',
     '  float alpha = 1.0 - smoothstep(-1.0, 1.0, dist);',
-    // 반사본은 바닥에서 멀어질수록 사라진다
-    '  if (uMirror > 0.5) alpha *= pow(vFade, 4.0);',
+    '  if (uMirror > 0.5) alpha *= pow(vUv.y, 4.0);',
     '  gl_FragColor = vec4(color.rgb, color.a * alpha * uOpacity);',
     '}'
   ].join('\n');
 
-  // 바닥에 깔리는 원근 그리드. 멀어질수록 옅어진다
-  const FLOOR_VERT = [
-    'varying vec3 vWorld;',
+  // ── 바닥 — 카드와 같은 lean을 먹어야 두 면이 한 덩어리로 보인다 ──
+  const FLOOR_VERT = SHEET_GLSL + '\n' + [
+    'uniform float u_run;',
+    'varying vec2 vUv;',
+    'varying float vFar;',
     'void main() {',
-    '  vec4 world = modelMatrix * vec4(position, 1.0);',
-    '  vWorld = world.xyz;',
-    '  gl_Position = projectionMatrix * viewMatrix * world;',
+    '  vUv = uv;',
+    '  vec4 w = modelMatrix * vec4(position, 1.0);',
+    '  vFar = -w.z / max(u_run, 0.0001);',
+    '  w = lean(w, u_sheetP);',
+    '  gl_Position = projectionMatrix * viewMatrix * w;',
     '}'
   ].join('\n');
 
   const FLOOR_FRAG = [
-    'uniform float uCell;',
-    'uniform vec3 uColor;',
-    'varying vec3 vWorld;',
-    'float line(float v, float width) {',
-    '  float g = abs(fract(v / uCell - 0.5) - 0.5) * uCell;',
-    '  return 1.0 - smoothstep(0.0, width, g);',
-    '}',
+    'uniform vec3 u_c0;',
+    'uniform vec3 u_c1;',
+    'uniform float u_alpha;',
+    'uniform float u_grid;',
+    'uniform vec2 u_gridF;',
+    'varying vec2 vUv;',
+    'varying float vFar;',
     'void main() {',
-    '  float w = fwidth(vWorld.x) * 1.2 + 0.6;',
-    '  float grid = max(line(vWorld.x, w), line(vWorld.z, fwidth(vWorld.z) * 1.2 + 0.6));',
-    '  float fade = 1.0 - smoothstep(200.0, 2400.0, length(vWorld.xz));',
-    '  gl_FragColor = vec4(uColor, grid * fade * 0.28);',
+    '  float fade = 1.0 - smoothstep(0.2, 0.95, vFar);',
+    '  float contact = exp(-abs(vFar) * 14.0);',
+    '  vec3 col = mix(u_c1, u_c0, smoothstep(0.0, 0.8, vFar));',
+    '  col *= 1.0 - contact * 0.55;',
+    '  vec2 g = vec2(vUv.x * u_gridF.x, vFar * u_gridF.y);',
+    '  vec2 gf = abs(fract(g) - 0.5);',
+    '  vec2 gw = fwidth(g) * 1.5;',
+    '  vec2 lines = vec2(1.0) - smoothstep(vec2(0.0), gw, gf);',
+    '  float line = max(lines.x, lines.y);',
+    '  col += line * u_grid * fade;',
+    '  gl_FragColor = vec4(col, u_alpha * fade);',
     '}'
   ].join('\n');
 
-  const floorMaterial = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    extensions: { derivatives: true },
-    vertexShader: FLOOR_VERT,
-    fragmentShader: FLOOR_FRAG,
-    uniforms: {
-      uCell: { value: 90 },
-      uColor: { value: new THREE.Color(0x9fb4c7) }
-    }
-  });
+  // 셰이더가 옮긴 정점을 JS에서도 똑같이 따라가야 DOM 캡션이 카드에 붙는다
+  const SHEET_PI = Math.PI;
+  const SHEET_BANK = -0.16;
+  const SHEET_DIAG = 0.03;
+  const SHEET_REAR_Y = 0.1;
+  const SHEET_REAR_Z = 0.2;
+  const SHEET_VTWIST = 1.8;
+  const SHEET_TAIL = 1.0;
+  const SHEET_SHIFT = -0.2;
 
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(12000, 9000), floorMaterial);
-  floor.rotation.x = -Math.PI / 2;
-  floor.renderOrder = -100;
-  scene.add(floor);
+  function smoothstep(a, b, x) {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  }
+  function sheetShape(q) {
+    const bowl = 1 - q * q;
+    const ess = Math.sin(SHEET_PI * q);
+    return (bowl + (ess - bowl) * SHEET_C) * Math.exp(-SHEET_TAIL * q * q);
+  }
+  function sheetShapeSlope(q) {
+    const g = Math.exp(-SHEET_TAIL * q * q);
+    const bowl = -2 * q * (1 + SHEET_TAIL * (1 - q * q));
+    const ess = SHEET_PI * Math.cos(SHEET_PI * q) - 2 * SHEET_TAIL * q * Math.sin(SHEET_PI * q);
+    return (bowl + (ess - bowl) * SHEET_C) * g;
+  }
+  function leanRamp(s) {
+    s = Math.min(1, Math.max(-1, s));
+    return s * (1.5 - 0.5 * s * s);
+  }
+
+  function deform(x, y, u) {
+    let z = 0;
+    const q = x / Math.max(u.W, 0.0001) * SHEET_T + SHEET_SHIFT;
+
+    let a = u.W < 0.001 ? 0 : SHEET_BANK * sheetShapeSlope(q) / SHEET_PI * SHEET_C;
+    if (u.V > 0.001 && u.W > 0.001) {
+      const qe = x / u.W;
+      a += SHEET_VTWIST * u.V * smoothstep(0.3, 0.9, Math.abs(qe)) * Math.sign(qe);
+    }
+    if (Math.abs(a) >= 0.0001) {
+      const s = Math.sin(a);
+      const c = Math.cos(a);
+      const ny = y * c - z * s;
+      z = y * s + z * c;
+      y = ny;
+    }
+
+    z += -u.D * sheetShape(q);
+
+    if (u.W > 0.001) {
+      const qw = x / u.W;
+      y += SHEET_DIAG * x;
+      if (u.V > 0.001) {
+        const m = 1 - smoothstep(-1, 0.3, qw);
+        y += SHEET_REAR_Y * u.W * u.V * m;
+        z += SHEET_REAR_Z * u.W * u.V * m;
+      }
+    }
+
+    if (u.W > 0.001) z += u.leanA * leanRamp(x / u.W);
+
+    const scale = CAM_Z / (CAM_Z - z);
+    return { sx: u.stageW / 2 + x * scale, sy: u.stageH / 2 - y * scale };
+  }
 
   function makeSource(item) {
     const video = item.querySelector('.thumb-area video');
@@ -785,26 +909,61 @@ $('.btn-contact').click(function(){
     return { texture: texture, aspect: function () { return 16 / 9; } };
   }
 
+  // 모든 카드가 같은 띠 위에 있어야 하므로 sheet 유니폼은 하나를 공유한다
+  const sheetUniforms = {
+    u_sheetW: { value: 0 },
+    u_sheetD: { value: 0 },
+    u_sheetT: { value: SHEET_T },
+    u_sheetC: { value: SHEET_C },
+    u_sheetP: { value: 1 },
+    u_sheetV: { value: 0 },
+    u_leanA: { value: 0 },
+    u_leanW: { value: 0 }
+  };
+
   function makeMaterial(source, mirror) {
+    const uniforms = {
+      uTexture: { value: source.texture },
+      uCover: { value: new THREE.Vector2(1, 1) },
+      uSize: { value: new THREE.Vector2(1, 1) },
+      uRadius: { value: 26 },
+      uOpacity: { value: mirror ? 0.13 : 1 },
+      uMirror: { value: mirror ? 1 : 0 }
+    };
+    Object.keys(sheetUniforms).forEach(function (key) { uniforms[key] = sheetUniforms[key]; });
+
     return new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: !mirror,
       vertexShader: CARD_VERT,
       fragmentShader: CARD_FRAG,
-      uniforms: {
-        uTexture: { value: source.texture },
-        uCover: { value: new THREE.Vector2(1, 1) },
-        uSize: { value: new THREE.Vector2(1, 1) },
-        uRadius: { value: 26 },
-        uOpacity: { value: mirror ? 0.13 : 1 },
-        uMirror: { value: mirror ? 1 : 0 },
-        uBow: { value: BOW },
-        uWaveAmp: { value: 0 },
-        uWaveLen: { value: WAVE_LEN },
-        uWavePhase: { value: 0 }
-      }
+      uniforms: uniforms
     });
   }
+
+  const floorUniforms = {
+    u_run: { value: 1 },
+    u_c0: { value: new THREE.Color(0x0b0c0e) },
+    u_c1: { value: new THREE.Color(0x1c2026) },
+    u_alpha: { value: 1 },
+    u_grid: { value: 0.34 },
+    u_gridF: { value: new THREE.Vector2(30, 11) }
+  };
+  Object.keys(sheetUniforms).forEach(function (key) { floorUniforms[key] = sheetUniforms[key]; });
+
+  const floorMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    extensions: { derivatives: true },
+    vertexShader: FLOOR_VERT,
+    fragmentShader: FLOOR_FRAG,
+    uniforms: floorUniforms
+  });
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 64, 64), floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.renderOrder = -100;
+  scene.add(floor);
 
   const panels = sliderEls.map(function (el) {
     const items = Array.from(el.querySelectorAll('.content-item'));
@@ -816,13 +975,12 @@ $('.btn-contact').click(function(){
 
     const cards = items.map(function (item) {
       const source = makeSource(item);
-      const geometry = new THREE.PlaneGeometry(1, 1, 64, 32);
+      const geometry = new THREE.PlaneGeometry(1, 1, 64, 24);
 
       const material = makeMaterial(source, false);
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
 
-      // 바닥에 비치는 상. 카드를 바닥면 기준으로 뒤집어 한 장 더 그린다
       const mirrorMaterial = makeMaterial(source, true);
       const mirror = new THREE.Mesh(geometry, mirrorMaterial);
       mirror.renderOrder = -50;
@@ -844,7 +1002,6 @@ $('.btn-contact').click(function(){
       group: group,
       cardW: 0,
       cardH: 0,
-      cardY: 0,
       floorY: 0,
       slot: 0,
       total: 0,
@@ -852,7 +1009,8 @@ $('.btn-contact').click(function(){
       stageH: 0,
       ready: false,
       target: 0,
-      current: 0
+      current: 0,
+      vel: 0
     };
 
     // 숨은 패널은 폭이 0이라 잴 수 없다. 탭으로 보일 때 다시 잰다
@@ -866,10 +1024,9 @@ $('.btn-contact').click(function(){
         return;
       }
 
-      // 카드 위쪽에 여유를 두고, 아래는 바닥 그리드가 보일 만큼 비운다
-      panel.stageH = Math.round(panel.cardH + 300);
-      panel.cardY = panel.stageH / 2 - panel.cardH / 2 - 40;
-      panel.floorY = panel.cardY - panel.cardH / 2 - FLOOR_GAP;
+      // 카드는 화면 한가운데. 아래 남는 자리에 바닥이 깔린다
+      panel.stageH = Math.round(panel.cardH + 380);
+      panel.floorY = -panel.cardH / 2 - 24;
       panel.slot = panel.cardW + GAP;
       panel.total = cards.length * panel.slot;
 
@@ -884,32 +1041,56 @@ $('.btn-contact').click(function(){
       camera.aspect = panel.stageW / panel.stageH;
       camera.fov = 2 * Math.atan((panel.stageH / 2) / CAM_Z) * 180 / Math.PI;
       camera.updateProjectionMatrix();
+
+      // 프러스텀 반너비·반높이. 원본이 띠의 기준으로 쓰는 값
+      const halfH = panel.stageH / 2;
+      const halfW = panel.stageW / 2;
+      const run = halfW * 4;
+
       floor.position.y = panel.floorY;
+      floor.position.z = -run / 2;
+      floor.scale.set(halfW * 6, run, 1);
+      floorUniforms.u_run.value = run;
+
+      panel.halfW = halfW;
+      panel.halfH = halfH;
     };
 
     panel.layout = function () {
       if (!panel.ready) return;
 
+      const W = panel.halfW;
+      const V = panel.vel;
+
+      sheetUniforms.u_sheetW.value = W;
+      sheetUniforms.u_sheetD.value = W * SHEET_DEPTH * (1 + SHEET_VEL * V);
+      sheetUniforms.u_sheetV.value = V;
+      sheetUniforms.u_leanA.value = W * LEAN_DOOR;
+      sheetUniforms.u_leanW.value = W;
+
+      const shape = {
+        W: W,
+        D: W * SHEET_DEPTH * (1 + SHEET_VEL * V),
+        V: V,
+        leanA: W * LEAN_DOOR,
+        stageW: panel.stageW,
+        stageH: panel.stageH
+      };
+
       const half = panel.total / 2;
-      const waveAmp = wave * WAVE_MAX;
-      const phase = -panel.current / WAVE_LEN * Math.PI * 2;
+      const halfCardW = panel.cardW / 2;
+      const halfCardH = panel.cardH / 2;
 
       cards.forEach(function (card, i) {
         const raw = i * panel.slot - panel.current + half;
         const x = ((raw % panel.total) + panel.total) % panel.total - half;
 
-        // 줄 전체가 완만한 곡선을 그리고, 카드는 그 곡선의 접선을 향한다
-        const z = -ARC * x * x;
-        const angle = Math.atan(-2 * ARC * x);
-
-        card.mesh.position.set(x, panel.cardY, z);
-        card.mesh.rotation.y = angle;
+        // 회전도 호 배치도 없다. 평평한 한 줄. 휘는 건 셰이더가 한다
+        card.mesh.position.set(x, 0, 0);
         card.mesh.scale.set(panel.cardW, panel.cardH, 1);
         card.mesh.renderOrder = -Math.abs(x);
 
-        // 바닥면을 거울로 삼아 뒤집는다
-        card.mirror.position.set(x, 2 * panel.floorY - panel.cardY, z);
-        card.mirror.rotation.y = angle;
+        card.mirror.position.set(x, 2 * panel.floorY, 0);
         card.mirror.scale.set(panel.cardW, -panel.cardH, 1);
 
         const texAspect = card.aspect();
@@ -921,37 +1102,35 @@ $('.btn-contact').click(function(){
         [card.material, card.mirrorMaterial].forEach(function (material) {
           material.uniforms.uSize.value.set(panel.cardW, panel.cardH);
           material.uniforms.uCover.value.set(cover[0], cover[1]);
-          material.uniforms.uWaveAmp.value = waveAmp;
-          material.uniforms.uWavePhase.value = phase;
         });
 
-        // 셰이더가 만든 깊이를 그대로 계산해야 DOM 캡션이 카드와 같은 자리에 붙는다
-        const depth = z + BOW;
-        const scale = CAM_Z / (CAM_Z - depth);
-        const screenX = panel.stageW / 2 + x * scale;
-        // 셰이더가 올린 물결만큼 캡션도 같이 올라가야 카드에 붙어 있다
-        const waveY = Math.sin(x / WAVE_LEN * Math.PI * 2 + phase) * waveAmp;
-        const screenY = panel.stageH / 2 - (panel.cardY + waveY) * scale;
-        const inView = screenX > -panel.cardW && screenX < panel.stageW + panel.cardW;
+        // 카드 네 변의 중점을 셰이더와 같은 식으로 옮겨 화면 좌표를 낸다
+        const left = deform(x - halfCardW, 0, shape);
+        const right = deform(x + halfCardW, 0, shape);
+        const top = deform(x, halfCardH, shape);
+        const bottom = deform(x, -halfCardH, shape);
 
+        const cx = (left.sx + right.sx) / 2;
+        const cy = (top.sy + bottom.sy) / 2;
+        const sx = Math.abs(right.sx - left.sx) / panel.cardW;
+        const sy = Math.abs(bottom.sy - top.sy) / panel.cardH;
+
+        const inView = cx > -panel.cardW && cx < panel.stageW + panel.cardW;
         card.mesh.visible = inView;
         card.mirror.visible = inView;
 
         // 카드 중심이 무대 밖으로 나가면 캡션끼리 겹친다. 그 전에 접는다
         const edge = panel.cardW * 0.45;
         const style = card.item.style;
-        if (!inView || screenX < edge || screenX > panel.stageW - edge) {
+        if (!inView || cx < edge || cx > panel.stageW - edge) {
           style.visibility = 'hidden';
           return;
         }
-        // 돌아간 카드는 가로로 눌려 보인다. 캡션도 같은 비율로 눌러야 카드 안에 머문다
-        const squash = Math.cos(angle);
-        const anchor = panel.cardH / 2;
         style.visibility = '';
-        style.left = screenX + 'px';
-        style.top = screenY + 'px';
-        style.transformOrigin = '50% ' + anchor + 'px';
-        style.transform = 'translate(-50%, ' + -anchor + 'px) scale(' + scale + ') scaleX(' + squash + ')';
+        style.left = cx + 'px';
+        style.top = cy + 'px';
+        style.transformOrigin = '50% 50%';
+        style.transform = 'translate(-50%, -50%) scale(' + sx + ',' + sy + ')';
         style.zIndex = String(Math.round(100 - Math.abs(x) / 10));
       });
     };
@@ -1060,10 +1239,10 @@ $('.btn-contact').click(function(){
       dirty = true;
     }
 
-    // 빠르게 흐를수록 물결이 커지고, 멈추면 서서히 잦아든다
-    const wanted = reduceMotion ? 0 : Math.min(1, Math.abs(speed) / 60);
-    if (Math.abs(wanted - wave) > 0.002) {
-      wave += (wanted - wave) * 0.12;
+    // 흐르는 속도가 그대로 띠의 파고와 비틀림이 된다
+    const wanted = reduceMotion ? 0 : Math.min(1, Math.abs(speed) / VEL_NORM);
+    if (Math.abs(wanted - active.vel) > 0.002) {
+      active.vel += (wanted - active.vel) * 0.12;
       dirty = true;
     }
 
