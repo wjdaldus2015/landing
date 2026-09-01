@@ -588,8 +588,8 @@ $('.btn-contact').click(function(){
 
 
 //sc-project
-// 참고 사이트는 카드 "면 자체"가 휘어 있다. CSS transform은 평면을 회전·이동만 시킬 수 있고
-// 면을 휘게 하지 못해서, 썸네일은 three.js로 그리고 제목·링크는 DOM 그대로 위에 얹는다.
+// 참고 사이트처럼 카드 면이 활처럼 휘고 드래그하면 물결처럼 늘어진다.
+// 바닥 그리드와 반사까지 한 씬에 넣어야 해서 배경·그림자 모두 three.js로 그린다.
 (function () {
   const section = document.querySelector('.sc-projects');
   const sliderEls = Array.from(document.querySelectorAll('.sc-projects .slider'));
@@ -597,11 +597,15 @@ $('.btn-contact').click(function(){
 
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const CAM_Z = 1400;    // 카메라 거리. 줄이면 원근이 강해진다
-  const CURVE = 0.00055; // 가장자리로 갈수록 뒤로 휘는 정도
-  const GAP = 40;        // 카드 사이 간격(px)
-  const LERP = 0.1;      // 목표를 따라가는 속도. 낮을수록 길게 미끄러진다
-  const MAX_TEXTURE = 1600; // 텍스처로 올릴 이미지의 최대 변 길이(px)
+  const CAM_Z = 1500;      // 카메라 거리. 줄이면 원근이 강해진다
+  const ARC = 0.00055;     // 카드 줄이 뒤로 물러나는 곡률
+  const BOW = 90;          // 카드 한 장이 앞으로 휘는 정도(px)
+  const WAVE_LEN = 900;    // 물결 한 주기 길이(px)
+  const WAVE_MAX = 70;     // 드래그가 가장 빠를 때 늘어지는 최대 높이(px)
+  const GAP = 140;         // 카드 사이 간격(px)
+  const FLOOR_GAP = 30;    // 카드 아래에서 바닥까지 거리(px)
+  const LERP = 0.09;       // 목표를 따라가는 속도. 낮을수록 길게 미끄러진다
+  const MAX_TEXTURE = 1600;
 
   let renderer;
   try {
@@ -614,44 +618,102 @@ $('.btn-contact').click(function(){
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.setClearColor(0x000000, 0);
+  renderer.sortObjects = true;
   renderer.domElement.className = 'slider-canvas';
 
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(50, 1, 1, 8000);
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 12000);
   camera.position.z = CAM_Z;
 
-  let dirty = true;    // 배치를 다시 계산해야 하는지
-  let onScreen = true; // 섹션이 화면 밖이면 그리지 않는다
+  let dirty = true;
+  let onScreen = true;
+  let wave = 0; // 드래그 속도를 따라오는 물결 세기
 
-  const VERTEX = [
-    'uniform float uCurve;',
+  // 카드 한 장이 활처럼 휘고, 줄 전체가 물결치도록 정점을 옮긴다
+  const CARD_VERT = [
+    'uniform float uBow;',
+    'uniform float uWaveAmp;',
+    'uniform float uWaveLen;',
+    'uniform float uWavePhase;',
     'varying vec2 vUv;',
+    'varying float vFade;',
     'void main() {',
     '  vUv = uv;',
-    '  vec4 world = modelMatrix * vec4(position, 1.0);',
-    '  world.z -= uCurve * world.x * world.x;',
+    '  vec3 pos = position;',
+    '  float t = uv.x - 0.5;',
+    '  pos.z += uBow * (1.0 - 4.0 * t * t);',
+    '  vec4 world = modelMatrix * vec4(pos, 1.0);',
+    '  world.y += sin(world.x / uWaveLen * 6.2831853 + uWavePhase) * uWaveAmp;',
+    '  vFade = uv.y;',
     '  gl_Position = projectionMatrix * viewMatrix * world;',
     '}'
   ].join('\n');
 
-  const FRAGMENT = [
+  const CARD_FRAG = [
     'uniform sampler2D uTexture;',
     'uniform vec2 uCover;',
     'uniform vec2 uSize;',
     'uniform float uRadius;',
+    'uniform float uOpacity;',
+    'uniform float uMirror;',
     'varying vec2 vUv;',
+    'varying float vFade;',
     'void main() {',
     '  vec2 uv = (vUv - 0.5) * uCover + 0.5;',
     '  vec4 color = texture2D(uTexture, uv);',
     '  vec2 p = (vUv - 0.5) * uSize;',
     '  vec2 d = abs(p) - (uSize * 0.5 - vec2(uRadius));',
     '  float dist = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - uRadius;',
-    '  color.a *= 1.0 - smoothstep(-1.0, 1.0, dist);',
-    '  gl_FragColor = color;',
+    '  float alpha = 1.0 - smoothstep(-1.0, 1.0, dist);',
+    // 반사본은 바닥에서 멀어질수록 사라진다
+    '  if (uMirror > 0.5) alpha *= pow(vFade, 4.0);',
+    '  gl_FragColor = vec4(color.rgb, color.a * alpha * uOpacity);',
     '}'
   ].join('\n');
 
-  // 카드마다 텍스처를 만든다. DOM에 이미 있는 img/video를 그대로 재사용해서 중복 다운로드를 피한다
+  // 바닥에 깔리는 원근 그리드. 멀어질수록 옅어진다
+  const FLOOR_VERT = [
+    'varying vec3 vWorld;',
+    'void main() {',
+    '  vec4 world = modelMatrix * vec4(position, 1.0);',
+    '  vWorld = world.xyz;',
+    '  gl_Position = projectionMatrix * viewMatrix * world;',
+    '}'
+  ].join('\n');
+
+  const FLOOR_FRAG = [
+    'uniform float uCell;',
+    'uniform vec3 uColor;',
+    'varying vec3 vWorld;',
+    'float line(float v, float width) {',
+    '  float g = abs(fract(v / uCell - 0.5) - 0.5) * uCell;',
+    '  return 1.0 - smoothstep(0.0, width, g);',
+    '}',
+    'void main() {',
+    '  float w = fwidth(vWorld.x) * 1.2 + 0.6;',
+    '  float grid = max(line(vWorld.x, w), line(vWorld.z, fwidth(vWorld.z) * 1.2 + 0.6));',
+    '  float fade = 1.0 - smoothstep(200.0, 2400.0, length(vWorld.xz));',
+    '  gl_FragColor = vec4(uColor, grid * fade * 0.28);',
+    '}'
+  ].join('\n');
+
+  const floorMaterial = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    extensions: { derivatives: true },
+    vertexShader: FLOOR_VERT,
+    fragmentShader: FLOOR_FRAG,
+    uniforms: {
+      uCell: { value: 90 },
+      uColor: { value: new THREE.Color(0x9fb4c7) }
+    }
+  });
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(12000, 9000), floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.renderOrder = -100;
+  scene.add(floor);
+
   function makeSource(item) {
     const video = item.querySelector('.thumb-area video');
     if (video) {
@@ -677,7 +739,6 @@ $('.btn-contact').click(function(){
         const w = img.naturalWidth;
         const h = img.naturalHeight;
         if (!w || !h) return;
-
         // 원본이 크면 그대로 올릴 때 GPU 메모리를 크게 먹는다. 캔버스로 줄여서 올린다
         if (Math.max(w, h) > MAX_TEXTURE) {
           const scale = MAX_TEXTURE / Math.max(w, h);
@@ -689,7 +750,6 @@ $('.btn-contact').click(function(){
         } else {
           texture.image = img;
         }
-        // 실제 비율을 알아야 cover 계산이 맞아서 배치를 다시 돌린다
         texture.needsUpdate = true;
         dirty = true;
       }
@@ -709,13 +769,13 @@ $('.btn-contact').click(function(){
     canvas.width = 1280;
     canvas.height = 720;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#1b1d20';
+    ctx.fillStyle = '#16181b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+    ctx.lineWidth = 3;
+    ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.font = '500 44px sans-serif';
+    ctx.font = '500 48px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label ? label.textContent : '', canvas.width / 2, canvas.height / 2);
@@ -723,6 +783,27 @@ $('.btn-contact').click(function(){
     const texture = new THREE.CanvasTexture(canvas);
     texture.encoding = THREE.sRGBEncoding;
     return { texture: texture, aspect: function () { return 16 / 9; } };
+  }
+
+  function makeMaterial(source, mirror) {
+    return new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: !mirror,
+      vertexShader: CARD_VERT,
+      fragmentShader: CARD_FRAG,
+      uniforms: {
+        uTexture: { value: source.texture },
+        uCover: { value: new THREE.Vector2(1, 1) },
+        uSize: { value: new THREE.Vector2(1, 1) },
+        uRadius: { value: 26 },
+        uOpacity: { value: mirror ? 0.13 : 1 },
+        uMirror: { value: mirror ? 1 : 0 },
+        uBow: { value: BOW },
+        uWaveAmp: { value: 0 },
+        uWaveLen: { value: WAVE_LEN },
+        uWavePhase: { value: 0 }
+      }
+    });
   }
 
   const panels = sliderEls.map(function (el) {
@@ -735,21 +816,26 @@ $('.btn-contact').click(function(){
 
     const cards = items.map(function (item) {
       const source = makeSource(item);
-      const material = new THREE.ShaderMaterial({
-        transparent: true,
-        vertexShader: VERTEX,
-        fragmentShader: FRAGMENT,
-        uniforms: {
-          uTexture: { value: source.texture },
-          uCover: { value: new THREE.Vector2(1, 1) },
-          uSize: { value: new THREE.Vector2(1, 1) },
-          uRadius: { value: 30 },
-          uCurve: { value: CURVE }
-        }
-      });
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 48, 24), material);
+      const geometry = new THREE.PlaneGeometry(1, 1, 64, 32);
+
+      const material = makeMaterial(source, false);
+      const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
-      return { item: item, mesh: mesh, material: material, aspect: source.aspect };
+
+      // 바닥에 비치는 상. 카드를 바닥면 기준으로 뒤집어 한 장 더 그린다
+      const mirrorMaterial = makeMaterial(source, true);
+      const mirror = new THREE.Mesh(geometry, mirrorMaterial);
+      mirror.renderOrder = -50;
+      group.add(mirror);
+
+      return {
+        item: item,
+        mesh: mesh,
+        mirror: mirror,
+        material: material,
+        mirrorMaterial: mirrorMaterial,
+        aspect: source.aspect
+      };
     });
 
     const panel = {
@@ -757,8 +843,9 @@ $('.btn-contact').click(function(){
       cards: cards,
       group: group,
       cardW: 0,
-      thumbH: 0,
-      meshY: 0,
+      cardH: 0,
+      cardY: 0,
+      floorY: 0,
       slot: 0,
       total: 0,
       stageW: 0,
@@ -773,21 +860,19 @@ $('.btn-contact').click(function(){
       const first = items[0];
       const thumb = first.querySelector('.thumb-area');
       panel.cardW = first.offsetWidth;
-      panel.thumbH = thumb ? thumb.offsetHeight : 0;
-      if (!panel.cardW || !panel.thumbH) {
+      panel.cardH = thumb ? thumb.offsetHeight : 0;
+      if (!panel.cardW || !panel.cardH) {
         panel.ready = false;
         return;
       }
 
-      const tallest = items.reduce(function (max, item) {
-        return Math.max(max, item.offsetHeight);
-      }, 0);
-
-      // 썸네일 아래 캡션까지 들어가도록 무대 높이를 잡고, 메시를 캡션 높이의 절반만큼 올린다
-      panel.stageH = tallest;
-      panel.meshY = (tallest - panel.thumbH) / 2;
+      // 카드 위쪽에 여유를 두고, 아래는 바닥 그리드가 보일 만큼 비운다
+      panel.stageH = Math.round(panel.cardH + 300);
+      panel.cardY = panel.stageH / 2 - panel.cardH / 2 - 40;
+      panel.floorY = panel.cardY - panel.cardH / 2 - FLOOR_GAP;
       panel.slot = panel.cardW + GAP;
       panel.total = cards.length * panel.slot;
+
       el.style.height = panel.stageH + 'px';
       panel.stageW = el.clientWidth;
       panel.ready = true;
@@ -799,50 +884,75 @@ $('.btn-contact').click(function(){
       camera.aspect = panel.stageW / panel.stageH;
       camera.fov = 2 * Math.atan((panel.stageH / 2) / CAM_Z) * 180 / Math.PI;
       camera.updateProjectionMatrix();
+      floor.position.y = panel.floorY;
     };
 
     panel.layout = function () {
       if (!panel.ready) return;
 
       const half = panel.total / 2;
+      const waveAmp = wave * WAVE_MAX;
+      const phase = -panel.current / WAVE_LEN * Math.PI * 2;
+
       cards.forEach(function (card, i) {
         const raw = i * panel.slot - panel.current + half;
         const x = ((raw % panel.total) + panel.total) % panel.total - half;
 
-        card.mesh.position.set(x, panel.meshY, 0);
-        card.mesh.scale.set(panel.cardW, panel.thumbH, 1);
-        // 깊이는 셰이더가 만들어서 three가 정렬에 못 쓴다. 가운데 카드가 위로 오게 직접 지정한다
+        // 줄 전체가 완만한 곡선을 그리고, 카드는 그 곡선의 접선을 향한다
+        const z = -ARC * x * x;
+        const angle = Math.atan(-2 * ARC * x);
+
+        card.mesh.position.set(x, panel.cardY, z);
+        card.mesh.rotation.y = angle;
+        card.mesh.scale.set(panel.cardW, panel.cardH, 1);
         card.mesh.renderOrder = -Math.abs(x);
-        card.material.uniforms.uSize.value.set(panel.cardW, panel.thumbH);
+
+        // 바닥면을 거울로 삼아 뒤집는다
+        card.mirror.position.set(x, 2 * panel.floorY - panel.cardY, z);
+        card.mirror.rotation.y = angle;
+        card.mirror.scale.set(panel.cardW, -panel.cardH, 1);
 
         const texAspect = card.aspect();
-        const planeAspect = panel.cardW / panel.thumbH;
-        if (planeAspect > texAspect) {
-          card.material.uniforms.uCover.value.set(1, texAspect / planeAspect);
-        } else {
-          card.material.uniforms.uCover.value.set(planeAspect / texAspect, 1);
-        }
+        const planeAspect = panel.cardW / panel.cardH;
+        const cover = planeAspect > texAspect
+          ? [1, texAspect / planeAspect]
+          : [planeAspect / texAspect, 1];
 
-        // 셰이더가 밀어낸 깊이를 그대로 계산해야 DOM 캡션이 카드와 같은 자리에 붙는다
-        const z = -CURVE * x * x;
-        const scale = CAM_Z / (CAM_Z - z);
+        [card.material, card.mirrorMaterial].forEach(function (material) {
+          material.uniforms.uSize.value.set(panel.cardW, panel.cardH);
+          material.uniforms.uCover.value.set(cover[0], cover[1]);
+          material.uniforms.uWaveAmp.value = waveAmp;
+          material.uniforms.uWavePhase.value = phase;
+        });
+
+        // 셰이더가 만든 깊이를 그대로 계산해야 DOM 캡션이 카드와 같은 자리에 붙는다
+        const depth = z + BOW;
+        const scale = CAM_Z / (CAM_Z - depth);
         const screenX = panel.stageW / 2 + x * scale;
-        const screenY = panel.stageH / 2 - panel.meshY * scale;
+        // 셰이더가 올린 물결만큼 캡션도 같이 올라가야 카드에 붙어 있다
+        const waveY = Math.sin(x / WAVE_LEN * Math.PI * 2 + phase) * waveAmp;
+        const screenY = panel.stageH / 2 - (panel.cardY + waveY) * scale;
         const inView = screenX > -panel.cardW && screenX < panel.stageW + panel.cardW;
 
         card.mesh.visible = inView;
+        card.mirror.visible = inView;
 
+        // 카드 중심이 무대 밖으로 나가면 캡션끼리 겹친다. 그 전에 접는다
+        const edge = panel.cardW * 0.45;
         const style = card.item.style;
-        if (!inView) {
+        if (!inView || screenX < edge || screenX > panel.stageW - edge) {
           style.visibility = 'hidden';
           return;
         }
-        const anchor = panel.thumbH / 2;
+        // 돌아간 카드는 가로로 눌려 보인다. 캡션도 같은 비율로 눌러야 카드 안에 머문다
+        const squash = Math.cos(angle);
+        const anchor = panel.cardH / 2;
         style.visibility = '';
         style.left = screenX + 'px';
         style.top = screenY + 'px';
         style.transformOrigin = '50% ' + anchor + 'px';
-        style.transform = 'translate(-50%, ' + -anchor + 'px) scale(' + scale + ')';
+        style.transform = 'translate(-50%, ' + -anchor + 'px) scale(' + scale + ') scaleX(' + squash + ')';
+        style.zIndex = String(Math.round(100 - Math.abs(x) / 10));
       });
     };
 
@@ -864,6 +974,7 @@ $('.btn-contact').click(function(){
     active = panel;
     panel.el.appendChild(renderer.domElement);
     panel.refresh();
+    dirty = true;
   }
 
   // 마우스 그랩 / 터치 스와이프
@@ -942,10 +1053,20 @@ $('.btn-contact').click(function(){
     if (!onScreen || !active.ready) return;
 
     const distance = active.target - active.current;
+    const speed = distance * (reduceMotion ? 1 : LERP);
+
     if (Math.abs(distance) > 0.05 || dragging) {
-      active.current += distance * (reduceMotion ? 1 : LERP);
+      active.current += speed;
       dirty = true;
     }
+
+    // 빠르게 흐를수록 물결이 커지고, 멈추면 서서히 잦아든다
+    const wanted = reduceMotion ? 0 : Math.min(1, Math.abs(speed) / 60);
+    if (Math.abs(wanted - wave) > 0.002) {
+      wave += (wanted - wave) * 0.12;
+      dirty = true;
+    }
+
     if (dirty) {
       active.layout();
       dirty = false;

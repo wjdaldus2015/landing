@@ -354,7 +354,7 @@ border-radius: 20px;
     position: absolute;
     top: 0;
     left: 0;
-    width: min(38vw, 760px);
+    width: min(32vw, 620px);
     display: flex;
     flex-direction: column;
     will-change: transform;
@@ -363,6 +363,29 @@ border-radius: 20px;
 /* 썸네일은 WebGL이 그린다. DOM 쪽은 투명하게 두되 링크 클릭 영역으로 남긴다 */
 .sc-projects.is-gl .thumb-area{
     opacity: 0;
+}
+
+/* 캡션은 참고 사이트처럼 카드 안쪽 좌하단에 얹는다 */
+.sc-projects.is-gl .info-area{
+    position: absolute;
+    left: 34px;
+    right: 34px;
+    bottom: 26px;
+    padding-top: 0;
+    text-shadow: 0 1px 12px rgba(0, 0, 0, 0.65);
+}
+.sc-projects.is-gl .info-area .title{
+    font-size: 28px;
+}
+.sc-projects.is-gl .info-area .desc{
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.sc-projects.is-gl .link-site,
+.sc-projects.is-gl .link-velog{
+    padding: 2px 14px;
+    font-size: 12px;
 }
 
 .sc-projects .thumb-empty{
