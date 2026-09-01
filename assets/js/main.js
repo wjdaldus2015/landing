@@ -1024,8 +1024,9 @@ $('.btn-contact').click(function(){
         return;
       }
 
-      // 카드는 화면 한가운데. 아래 남는 자리에 바닥이 깔린다
-      panel.stageH = Math.round(panel.cardH + 380);
+      // 카드는 화면 한가운데. 남는 자리는 전부 바닥이 깔린다.
+      // 슬라이더가 sc-about 바로 위까지 닿으므로 여기 높이가 곧 바닥의 세로 길이다
+      panel.stageH = Math.round(panel.cardH + 585);
       panel.floorY = -panel.cardH / 2 - 24;
       panel.slot = panel.cardW + GAP;
       panel.total = cards.length * panel.slot;

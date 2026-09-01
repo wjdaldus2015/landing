@@ -320,6 +320,14 @@ border-radius: 20px;
     touch-action: pan-y;
 }
 
+/* 바닥판이 sc-about 바로 위까지 끊김 없이 이어져야 해서 아래 여백을 슬라이더가 먹는다 */
+.sc-projects.is-gl{
+    padding-bottom: 0;
+}
+.sc-projects.is-gl .slider{
+    margin-bottom: 0;
+}
+
 /* 휘어진 썸네일을 그리는 WebGL 캔버스. 링크는 위에 얹힌 DOM이 받는다 */
 .sc-projects .slider-canvas{
     position: absolute;
