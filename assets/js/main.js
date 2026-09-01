@@ -2009,6 +2009,12 @@ $('.btn-contact').click(function(){
       const texture = new THREE.VideoTexture(video);
       texture.minFilter = THREE.LinearFilter;
       texture.encoding = THREE.sRGBEncoding;
+      // iOS 는 playsinline 없이 재생하면 영상을 전체화면으로 띄운다.
+      // 여기서 텍스처용으로 강제 재생하므로 마크업과 별개로 한 번 더 잠근다
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('webkit-playsinline', '');
+      video.muted = true;
       const played = video.play();
       if (played && played.catch) played.catch(function () {});
       video.addEventListener('loadedmetadata', function () { dirty = true; });
