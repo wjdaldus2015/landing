@@ -377,11 +377,6 @@ border-radius: 20px;
 .sc-projects.is-gl .info-area .title{
     font-size: 28px;
 }
-.sc-projects.is-gl .info-area .desc{
-    margin-top: 10px;
-    font-size: 13px;
-    line-height: 1.5;
-}
 .sc-projects.is-gl .link-site,
 .sc-projects.is-gl .link-velog{
     padding: 2px 14px;
@@ -464,11 +459,6 @@ border-radius: 20px;
     font-weight: 450;
     font-size: calc(var(--title-size)* 0.25);
     line-height: 1.2;
-}
-.sc-projects .content-item .info-area .desc{
-    color: rgba(var(--color-light-rgb), 0.8);
-    font-weight: 400;
-    margin-top: 20px;
 }
 
 .sc-about{
