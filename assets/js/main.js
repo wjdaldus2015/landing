@@ -1047,10 +1047,23 @@ $('.btn-contact').click(function(){
       const halfW = panel.stageW / 2;
       const run = halfW * 4;
 
+      // 바닥은 카메라 앞쪽까지 나와야 화면 아래가 안 빈다.
+      // 카메라에 가까울수록 확대되므로 화면 바닥을 덮는 깊이를 역산한다
+      const needScale = panel.stageH / (2 * Math.max(Math.abs(panel.floorY), 1)) + 0.4;
+      const nearZ = Math.min(CAM_Z * 0.72, CAM_Z * (1 - 1 / needScale));
+      const depth = nearZ + run;
+
+      // 가장 먼 가장자리까지 화면을 덮을 만큼 넓혀야 좌우도 안 잘린다
+      const width = Math.max(halfW * 2 / (CAM_Z / (CAM_Z + run)), halfW * 4) * 2.2;
+
       floor.position.y = panel.floorY;
-      floor.position.z = -run / 2;
-      floor.scale.set(halfW * 6, run, 1);
+      floor.position.z = (nearZ - run) / 2;
+      floor.scale.set(width, depth, 1);
       floorUniforms.u_run.value = run;
+
+      // 칸이 월드 기준으로 같은 크기가 되도록 판 크기에 맞춰 칸 수를 잡는다
+      const cell = 150;
+      floorUniforms.u_gridF.value.set(width / cell, run / cell);
 
       panel.halfW = halfW;
       panel.halfH = halfH;
