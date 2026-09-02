@@ -153,7 +153,9 @@ $('.btn-contact').click(function(){
     box.className = 'cell';
     const inner2 = document.createElement('i');
     inner2.textContent = ch;
-    inner2.style.transitionDelay = delay + 'ms';
+    // 지연을 ms 로 박지 않고 35ms 를 한 칸으로 본 순번만 남긴다.
+    // 실제 간격은 CSS 의 --cell-step 이 정하므로 스크롤 속도에 맞춰 줄일 수 있다
+    inner2.style.setProperty('--i', (delay / 35).toFixed(3));
     box.appendChild(inner2);
     return box;
   }
@@ -1267,7 +1269,7 @@ $('.btn-contact').click(function(){
         cell.className = 'cell';
         const inner = document.createElement('i');
         inner.textContent = ch;
-        inner.style.transitionDelay = (idx * 35) + 'ms';
+        inner.style.setProperty('--i', idx);
         cell.appendChild(inner);
         frag.appendChild(cell);
         idx++;
@@ -1276,7 +1278,11 @@ $('.btn-contact').click(function(){
       part.appendChild(frag);
     });
 
-    stations.push({ el: el, z: z, uniforms: uniforms, form: 0, on: false });
+    // cells - 마지막 글자의 순번. 문구가 다 나오는 데 걸리는 시간을 여기서 구한다
+    stations.push({
+      el: el, z: z, uniforms: uniforms, cells: idx,
+      form: 0, on: false, onAt: 0, holdMs: 0, want: false
+    });
   });
 
 
@@ -1410,7 +1416,8 @@ $('.btn-contact').click(function(){
       end: '+=360%',
       pin: true,
       pinSpacing: true,
-      scrub: 0.8,
+      // 아래 rAF 루프에서 한 번 더 부드럽게 따라가므로 여기서는 지연을 두지 않는다
+      scrub: true,
       onRefresh: function (self) { dive.len = Math.max(self.end - self.start, 1); },
       onUpdate: function (self) { dive.px = self.progress * Math.max(self.end - self.start, 1); }
     });
@@ -1508,12 +1515,32 @@ $('.btn-contact').click(function(){
   const outroLines = Array.prototype.slice.call(
     document.querySelectorAll('.sc-intro .outro-line')
   );
+  const outroCells = outroLines.map(function (el) {
+    return el.querySelectorAll('.cell').length;
+  });
   let outroPhase = 0;
   let outroAt = 0;
+  let outroHold = 0;     // 첫 문구가 다 나올 때까지 걸리는 시간
   let scrollSm = 0;      // 부드럽게 따라가는 스크롤량
   let prevScroll = 0;
   let velAvg = 0;        // 평소 속도
   let boost = 0;         // 급하게 굴렸을 때만 오르는 값 - 화각과 기울기를 흔든다
+  let lastT = 0;
+  let prevX = 0;
+  let rush = 0;          // 장면이 흘러가는 속도 0..1 - 글자 모션 길이를 여기에 맞춘다
+
+  // 글자 간격과 지속 시간. 빠르게 지나갈수록 짧아져 짧은 구간에서도 문구가 완성된다
+  const STEP_MS = 35;
+  const DUR_MS = 700;
+  const DUR_MIN = 220;
+  function cellTiming(el) {
+    el.style.setProperty('--cell-step', (STEP_MS * (1 - rush)).toFixed(1) + 'ms');
+    el.style.setProperty('--cell-dur', (DUR_MS - (DUR_MS - DUR_MIN) * rush).toFixed(0) + 'ms');
+  }
+  // 지금 속도에서 글자 n 칸짜리 문구가 다 나오는 데 걸리는 시간
+  function revealMs(cells) {
+    return cells * STEP_MS * (1 - rush) + (DUR_MS - (DUR_MS - DUR_MIN) * rush);
+  }
 
   gsap.ticker.add(function () {
     if (!visible) return;
@@ -1542,9 +1569,17 @@ $('.btn-contact').click(function(){
     );
     camera.position.y += (1 - shared.uIntro.value) * 8;
 
-    scrollSm += (dive.px - scrollSm) * 0.08;
+    scrollSm += (dive.px - scrollSm) * 0.18;
     const speed = DIVE_DEPTH / dive.len;
     const x = -(scrollSm * speed);
+
+    // 장면이 초당 몇 월드 단위로 흐르는지 재서, 글자 모션 길이를 여기에 맞춘다
+    const dtSec = Math.min(Math.max(t - lastT, 1 / 240), 0.1);
+    lastT = t;
+    const flow = Math.abs(x - prevX) / dtSec;
+    prevX = x;
+    rush += (Math.min(1, Math.max(0, (flow - 2) / 8)) - rush) * 0.25;
+
     camera.position.z += x;
     lookTarget.copy(CAM_TARGET);
     lookTarget.z += x;
@@ -1595,6 +1630,7 @@ $('.btn-contact').click(function(){
       const above = introAbove ? gone > INTRO_BACK_DIST : gone > INTRO_OUT_DIST;
       if (above !== introAbove) {
         introAbove = above;
+        cellTiming(introInner);
         introInner.classList.toggle('is-above', above);
       }
     }
@@ -1612,7 +1648,9 @@ $('.btn-contact').click(function(){
         // 다가올 때 차오르고 지나가면 빠진다
         const target = (1 - ramp(off, off + 6, rel)) * ramp(-(off + 6), -off, rel) * (1 - tp);
         const gap = target - st.form;
-        const step = dt / Math.max(gap >= 0 ? ST.formInMs : ST.formOutMs, 1);
+        // 파티클이 모이고 흩어지는 시간도 같이 줄여야 숫자가 덜 만들어진 채 지나가지 않는다
+        const rate = (gap >= 0 ? ST.formInMs : ST.formOutMs) * (1 - 0.75 * rush);
+        const step = dt / Math.max(rate, 1);
         st.form = Math.abs(gap) <= step ? target : st.form + Math.sign(gap) * step;
         st.uniforms.uFormProgress.value = st.form;
         st.uniforms.uVisProgress.value =
@@ -1622,9 +1660,27 @@ $('.btn-contact').click(function(){
         st.uniforms.uHoverActive.value = shared.uHoverActive.value;
 
         // 문구는 스테이션에 닿기 조금 전 구간에서만 올라와 있는다
-        const on = tp < 0.02 && rel > -ST.labelDisappear && rel < ST.labelAppear;
+        st.want = tp < 0.02 && rel > -ST.labelDisappear && rel < ST.labelAppear;
+      }
+
+      // 문구가 다 나오기 전에 구간을 지나쳐 버리면 글자가 잘린 채 사라진다.
+      // 그래서 켤 때 지금 속도에 맞는 모션 길이를 박아 두고, 그 시간만큼은 붙잡아 둔다.
+      // 다음 스테이션이 들어오면 겹치지 않도록 바로 놓는다
+      let anyWant = false;
+      for (let i = 0; i < stations.length; i++) {
+        if (stations[i].want) { anyWant = true; break; }
+      }
+      for (let i = 0; i < stations.length; i++) {
+        const st = stations[i];
+        const held = st.on && !anyWant && now - st.onAt < st.holdMs;
+        const on = st.want || held;
         if (on !== st.on) {
           st.on = on;
+          cellTiming(st.el);
+          if (on) {
+            st.onAt = now;
+            st.holdMs = revealMs(st.cells);
+          }
           st.el.classList.toggle('is-on', on);
         }
       }
@@ -1634,15 +1690,22 @@ $('.btn-contact').click(function(){
     if (outroLines.length) {
       let phase = 0;
       if (camera.position.z <= C.outroCamZ) {
-        if (outroPhase === 0) outroAt = now;
-        phase = (camera.position.z <= C.outroSplitCamZ
-          || (outroAt > 0 && now - outroAt >= C.outroHoldMs)) ? 2 : 1;
+        if (outroPhase === 0) {
+          outroAt = now;
+          outroHold = revealMs(outroCells[0] || 0);
+        }
+        // 한 프레임에 두 지점을 다 지나쳐도 첫 문구를 건너뛰지 않도록,
+        // 첫 문구가 뜬 시점부터 재서 다 나올 시간을 확보한 뒤에만 다음으로 넘긴다
+        const shown = outroAt > 0 ? now - outroAt : 0;
+        const wants2 = camera.position.z <= C.outroSplitCamZ || shown >= C.outroHoldMs;
+        phase = (wants2 && shown >= outroHold) ? 2 : 1;
       }
       if (phase !== outroPhase) {
         outroPhase = phase;
         if (phase === 0) outroAt = 0;
         outroLines.forEach(function (el, i) {
           const on = phase === i + 1;
+          cellTiming(el);
           el.classList.toggle('is-on', on);
           // 지나간 문구는 위로 빠지고, 아직 안 나온 문구는 아래에 대기한다
           el.classList.toggle('is-out', !on && phase > i);
